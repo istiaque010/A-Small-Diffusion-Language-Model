@@ -1,0 +1,54 @@
+{
+  "run": "smoke",
+  "config": {
+    "run_name": "smoke",
+    "seed": 1337,
+    "model": {
+      "n_layer": 2,
+      "n_head": 4,
+      "n_embd": 128,
+      "block_size": 256,
+      "dropout": 0.1,
+      "bias": true,
+      "time_cond": false
+    },
+    "train": {
+      "batch_size": 8,
+      "grad_accum_steps": 1,
+      "max_steps": 60,
+      "lr": 0.001,
+      "min_lr": 0.0001,
+      "warmup_steps": 10,
+      "weight_decay": 0.1,
+      "betas": [
+        0.9,
+        0.95
+      ],
+      "grad_clip": 1.0,
+      "eval_interval": 30,
+      "eval_windows": 64,
+      "log_interval": 10,
+      "ckpt_interval": 1000000,
+      "mask_schedule": "linear"
+    }
+  },
+  "params": {
+    "total": 1478272,
+    "non_embedding": 396800
+  },
+  "train_windows_available": 1772186,
+  "tokens_per_step": 2048,
+  "env": {
+    "python": "3.12.10",
+    "platform": "Windows-11-10.0.26200-SP0",
+    "processor": "Intel64 Family 6 Model 198 Stepping 2, GenuineIntel",
+    "cpu_count": 24,
+    "ram_gb": 63.7,
+    "torch": "2.14.1+cpu",
+    "device": "cpu",
+    "torch_threads": 24,
+    "cuda_available": false,
+    "hip_version": null,
+    "cuda_version": null
+  }
+}

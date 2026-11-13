@@ -1,0 +1,54 @@
+{
+  "run": "mdlm_base",
+  "config": {
+    "run_name": "mdlm_base",
+    "seed": 1337,
+    "model": {
+      "n_layer": 6,
+      "n_head": 6,
+      "n_embd": 384,
+      "block_size": 256,
+      "dropout": 0.1,
+      "bias": true,
+      "time_cond": false
+    },
+    "train": {
+      "batch_size": 8,
+      "grad_accum_steps": 8,
+      "max_steps": 10000,
+      "lr": 0.0006,
+      "min_lr": 6e-05,
+      "warmup_steps": 500,
+      "weight_decay": 0.1,
+      "betas": [
+        0.9,
+        0.95
+      ],
+      "grad_clip": 1.0,
+      "eval_interval": 500,
+      "eval_windows": 800,
+      "log_interval": 50,
+      "ckpt_interval": 1000,
+      "mask_schedule": "linear"
+    }
+  },
+  "params": {
+    "total": 13891968,
+    "non_embedding": 10647552
+  },
+  "train_windows_available": 1772186,
+  "tokens_per_step": 16384,
+  "env": {
+    "python": "3.12.10",
+    "platform": "Windows-11-10.0.26200-SP0",
+    "processor": "Intel64 Family 6 Model 198 Stepping 2, GenuineIntel",
+    "cpu_count": 24,
+    "ram_gb": 63.7,
+    "torch": "2.14.1+cpu",
+    "device": "cpu",
+    "torch_threads": 24,
+    "cuda_available": false,
+    "hip_version": null,
+    "cuda_version": null
+  }
+}

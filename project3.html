@@ -1,0 +1,1214 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Small Diffusion Language Model</title>
+<meta name="description" content="Project 3 tutorial: a small masked diffusion language model writes children's stories by filling blanks in parallel, compared with left-to-right models of the same size, on a CPU. Every step, why, the result, and how it led to the next step.">
+<style>
+:root {
+  --bg: #f7f6f3; --surface: #ffffff; --surface-2: #f1efea; --text: #1f2328; --muted: #5d6470;
+  --border: #e2ded6; --accent: #2f6fdb; --accent-soft: #e6eefc; --good: #1f8a4c; --good-soft: #e3f4ea;
+  --warn: #b26a00; --warn-soft: #fdf1dc; --bad: #c0392b; --bad-soft: #fbe6e3; --code-bg: #f3f1ec;
+  --teacher: #7a4fd0; --scratch: #d95926; --kd: #1f8a4c; --kd2: #2a78d6; --kd3: #c2477e; --kd4: #a88700;
+  --grid: #e1e0d9; --axis: #c3c2b7; --diffs: #8fb8ea;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #15171b; --surface: #1d2026; --surface-2: #242830; --text: #e7e9ee; --muted: #a0a7b4;
+    --border: #323742; --accent: #7aa7ff; --accent-soft: #1f2b44; --good: #5cc98a; --good-soft: #17301f;
+    --warn: #f0b45a; --warn-soft: #33281a; --bad: #ff8a7a; --bad-soft: #3a1f1c; --code-bg: #262a32;
+    --teacher: #b394ff; --scratch: #f08a4b; --kd: #5cc98a; --kd2: #6fa8ff; --kd3: #ee7aab; --kd4: #d6c34a;
+    --grid: #2c2f36; --axis: #3e434d; --diffs: #3f6db0;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #15171b; --surface: #1d2026; --surface-2: #242830; --text: #e7e9ee; --muted: #a0a7b4;
+  --border: #323742; --accent: #7aa7ff; --accent-soft: #1f2b44; --good: #5cc98a; --good-soft: #17301f;
+  --warn: #f0b45a; --warn-soft: #33281a; --bad: #ff8a7a; --bad-soft: #3a1f1c; --code-bg: #262a32;
+  --teacher: #b394ff; --scratch: #f08a4b; --kd: #5cc98a; --kd2: #6fa8ff; --kd3: #ee7aab; --kd4: #d6c34a;
+  --grid: #2c2f36; --axis: #3e434d; --diffs: #3f6db0;
+}
+* { box-sizing: border-box; }
+html { scroll-behavior: smooth; }
+body { margin: 0; background: var(--bg); color: var(--text);
+  font: 16px/1.6 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+a { color: var(--accent); }
+code, pre { font-family: ui-monospace, "Cascadia Code", Consolas, monospace; font-size: 0.88em; }
+code { background: var(--code-bg); padding: 1px 5px; border-radius: 4px; }
+pre { background: var(--code-bg); padding: 12px 14px; border-radius: 8px; overflow-x: auto; line-height: 1.5; }
+pre code { background: none; padding: 0; }
+h1, h2, h3, h4 { line-height: 1.25; }
+.layout { display: grid; grid-template-columns: 250px minmax(0, 1fr); gap: 32px; max-width: 1180px;
+  margin: 0 auto; padding: 24px 16px 80px; }
+nav.toc { position: sticky; top: 16px; align-self: start; max-height: calc(100vh - 32px); overflow-y: auto; font-size: 14px; }
+nav.toc h4 { margin: 0 0 8px; color: var(--muted); text-transform: uppercase; letter-spacing: .06em; font-size: 12px; }
+nav.toc a { display: block; padding: 4px 10px; border-left: 2px solid var(--border); color: var(--muted); text-decoration: none; }
+nav.toc a:hover, nav.toc a.active { color: var(--accent); border-left-color: var(--accent); }
+nav.toc .group { margin: 14px 0 4px; font-weight: 600; color: var(--text); font-size: 13px; }
+main { min-width: 0; }
+header.hero { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 28px; }
+header.hero h1 { margin: 0 0 8px; font-size: 30px; }
+header.hero p { margin: 6px 0; color: var(--muted); max-width: 72ch; }
+.badge { display: inline-block; padding: 2px 10px; border-radius: 999px; font-size: 13px; font-weight: 600; background: var(--good-soft); color: var(--good); }
+section { margin-top: 36px; }
+section > h2 { font-size: 24px; margin: 0 0 12px; }
+.card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 20px 22px; }
+.stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 12px; margin-top: 18px; }
+.stat { background: var(--surface-2); border-radius: 10px; padding: 14px; }
+.stat .v { font-size: 26px; font-weight: 700; }
+.stat .l { font-size: 13px; color: var(--muted); }
+.flow { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin: 12px 0; }
+.flow span.box { background: var(--accent-soft); color: var(--text); border-radius: 8px; padding: 6px 10px; font-size: 14px; }
+.flow span.box.t { background: color-mix(in srgb, var(--teacher) 18%, var(--surface)); }
+.flow span.box.s { background: color-mix(in srgb, var(--kd) 18%, var(--surface)); }
+.flow span.arrow { color: var(--muted); }
+table { border-collapse: collapse; width: 100%; font-size: 14px; margin: 10px 0; }
+.tw { overflow-x: auto; }
+th, td { border-bottom: 1px solid var(--border); padding: 7px 9px; text-align: left; vertical-align: top; }
+th { background: var(--surface-2); font-weight: 600; }
+td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
+.phase { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 22px 24px; margin-top: 22px; }
+.phase-head { display: flex; gap: 14px; align-items: center; }
+.phase-num { flex: none; width: 42px; height: 42px; border-radius: 50%; display: grid; place-items: center;
+  background: var(--accent); color: var(--surface); font-weight: 700; font-size: 17px; }
+.phase-head h3 { margin: 0; font-size: 21px; }
+.phase-head .sub { color: var(--muted); font-size: 14px; }
+.part { margin-top: 16px; }
+.part > h4 { margin: 0 0 6px; font-size: 13px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); }
+.part p { margin: 6px 0; }
+.part ul { margin: 6px 0; padding-left: 22px; }
+.analogy { background: var(--surface-2); border-radius: 10px; padding: 10px 14px; font-size: 15px; }
+.analogy::before { content: "Think of it like this: "; font-weight: 600; }
+.decide { background: var(--good-soft); border-left: 4px solid var(--good); border-radius: 8px; padding: 12px 16px; margin-top: 16px; }
+.decide h4 { margin: 0 0 6px; color: var(--good); font-size: 14px; text-transform: uppercase; letter-spacing: .05em; }
+.decide p, .decide ul { margin: 4px 0; }
+.warn { background: var(--warn-soft); border-left: 4px solid var(--warn); border-radius: 8px; padding: 10px 14px; margin-top: 12px; }
+.warn b { color: var(--warn); }
+.note { background: var(--accent-soft); border-left: 4px solid var(--accent); border-radius: 8px; padding: 10px 14px; margin-top: 12px; }
+.bar { height: 10px; border-radius: 5px; background: var(--accent); display: inline-block; vertical-align: middle; }
+.bar.bad { background: var(--bad); } .bar.good { background: var(--good); }
+.theme-btn { float: right; background: var(--surface-2); color: var(--text); border: 1px solid var(--border);
+  border-radius: 8px; padding: 5px 10px; cursor: pointer; font-size: 13px; }
+.gloss dt { font-weight: 600; margin-top: 10px; }
+.gloss dd { margin: 2px 0 0 0; color: var(--muted); }
+.gloss .grp { margin-top: 18px; font-size: 13px; text-transform: uppercase; letter-spacing: .06em; color: var(--accent); font-weight: 700; }
+/* ideas + demos */
+.idea { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 22px 24px; margin-top: 22px; }
+.idea > h3 { margin: 0 0 4px; font-size: 21px; display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+.idea > h3 .tag { font-size: 12px; font-weight: 700; padding: 3px 8px; border-radius: 6px; background: var(--accent-soft); color: var(--accent); }
+.idea .lead { color: var(--muted); margin: 0 0 8px; }
+.demo { background: var(--surface-2); border-radius: 12px; padding: 16px; margin-top: 14px; }
+.demo-title { font-weight: 600; font-size: 14px; margin-bottom: 8px; }
+.demo-note { font-size: 13px; color: var(--muted); margin-top: 8px; }
+.controls { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-top: 12px; }
+.btn { background: var(--surface); color: var(--text); border: 1px solid var(--border); border-radius: 8px;
+  padding: 6px 12px; font: inherit; font-size: 14px; cursor: pointer; }
+.btn:hover { border-color: var(--accent); color: var(--accent); }
+.btn.on { background: var(--accent); color: var(--surface); border-color: var(--accent); }
+.bars { display: grid; grid-template-columns: max-content minmax(0, 1fr) 62px; gap: 6px 10px; align-items: center; margin-top: 8px; }
+.bars .lab { font-family: ui-monospace, Consolas, monospace; font-size: 14px; white-space: pre; }
+.bars .track { height: 14px; border-radius: 4px; background: var(--border); overflow: hidden; }
+.bars .fill { height: 100%; border-radius: 0 4px 4px 0; background: var(--kd2); transition: width .45s ease; }
+.bars .fill.rest { background: var(--axis); }
+.bars .fill.win { background: var(--good); }
+.bars .fill.t { background: var(--teacher); }
+.bars .val { font-size: 13px; text-align: right; font-variant-numeric: tabular-nums; }
+.two { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+.facts { display: flex; flex-wrap: wrap; gap: 18px; font-size: 13px; color: var(--muted); margin-top: 10px; }
+.facts b { color: var(--text); }
+input[type=range] { width: 100%; max-width: 420px; accent-color: var(--accent); }
+.stackbar { display: flex; height: 34px; border-radius: 6px; overflow: hidden; margin-top: 10px; background: var(--border); }
+.stackbar div { display: grid; place-items: center; color: #fff; font-size: 13px; font-weight: 600; transition: width .35s; white-space: nowrap; overflow: hidden; }
+.pkg { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 12px; margin-top: 12px; }
+.pkg > div { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 12px 14px; font-size: 14px; }
+.pkg > div b { display: block; font-family: ui-monospace, Consolas, monospace; font-size: 13.5px; margin-bottom: 2px; }
+.pkg > div .use { color: var(--muted); font-size: 13px; margin-top: 6px; }
+.scale { position: relative; height: 70px; margin: 18px 10px 6px; }
+.scale .line { position: absolute; left: 0; right: 0; top: 30px; height: 4px; border-radius: 2px; background: var(--border); }
+.scale .seg { position: absolute; top: 30px; height: 4px; background: var(--good); }
+.scale .pt { position: absolute; top: 22px; width: 20px; height: 20px; margin-left: -10px; border-radius: 50%; border: 3px solid var(--surface); }
+.scale .pl { position: absolute; top: 48px; transform: translateX(-50%); font-size: 12.5px; white-space: nowrap; text-align: center; }
+.scale .pl.up { top: 0; }
+.story { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 12px 14px; margin-top: 10px; font-family: Georgia, "Times New Roman", serif; font-size: 15.5px; }
+.story .who { font-family: system-ui, sans-serif; font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; margin-bottom: 4px; }
+.story mark { background: var(--bad-soft); color: var(--bad); border-radius: 3px; padding: 0 2px; }
+.legend { display: flex; flex-wrap: wrap; gap: 6px; margin: 6px 0; }
+.legend button { font: inherit; font-size: 13px; display: flex; align-items: center; gap: 6px; border: 1px solid var(--border); background: var(--surface); color: var(--text); padding: 3px 10px; border-radius: 99px; cursor: pointer; }
+.legend button[aria-pressed="false"] { opacity: .4; }
+.legend i { width: 16px; height: 3px; border-radius: 2px; display: inline-block; }
+svg.chart { width: 100%; height: auto; display: block; overflow: visible; }
+svg.chart text { fill: var(--muted); font-size: 12px; font-family: system-ui, sans-serif; }
+svg.chart .gridl { stroke: var(--grid); stroke-width: 1; }
+#tip { position: fixed; pointer-events: none; background: var(--surface); color: var(--text); border: 1px solid var(--border);
+  border-radius: 8px; padding: 6px 10px; font-size: 13px; box-shadow: 0 4px 14px rgba(0,0,0,.15); opacity: 0; transition: opacity .12s; z-index: 10; max-width: 260px; }
+.ts-wrap { display: grid; grid-template-columns: 1fr auto 1fr; gap: 14px; align-items: center; }
+.ts-wrap .arrow-big { font-size: 28px; color: var(--muted); text-align: center; }
+.student .fill { animation: learn 4s ease-in-out infinite; }
+@keyframes learn { 0% { width: var(--start); } 60%, 100% { width: var(--end); } }
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation: none !important; transition: none !important; }
+  .student .fill { width: var(--end); }
+}
+@media (max-width: 860px) {
+  .layout { grid-template-columns: 1fr; gap: 16px; }
+  nav.toc { position: static; max-height: none; background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 14px; }
+  header.hero { padding: 20px; }
+  header.hero h1 { font-size: 24px; }
+  .phase, .idea { padding: 18px 16px; }
+  .two { grid-template-columns: 1fr; }
+  .ts-wrap { grid-template-columns: 1fr; }
+  .ts-wrap .arrow-big { transform: rotate(90deg); }
+}
+
+/* project 3 additions */
+.tokens { display: flex; flex-wrap: wrap; gap: 4px; font-family: ui-monospace, "Cascadia Code", Consolas, monospace; font-size: 13.5px; }
+.tok { padding: 2px 6px; border-radius: 5px; background: var(--surface); border: 1px solid var(--border); min-height: 24px; }
+.tok.p { font-weight: 700; }
+.tok.m { background: var(--axis); border-color: var(--axis); color: var(--muted); min-width: 30px; text-align: center; font-size: 11px; }
+.tok.new { background: var(--accent-soft); border-color: var(--accent); color: var(--accent); }
+.agrid { display: grid; gap: 3px; font-size: 13px; }
+.agrid .ah { color: var(--muted); text-align: center; align-self: center; font-family: ui-monospace, Consolas, monospace; }
+.agrid .ah.hl { color: var(--accent); font-weight: 700; }
+.agrid .ac { height: 26px; border-radius: 4px; background: transparent; border: 1px dashed var(--axis); }
+.agrid .ac.on { background: color-mix(in srgb, var(--accent) 30%, var(--surface)); border: 1px solid transparent; }
+.agrid .ac.on.hl { background: var(--accent); }
+</style>
+</head>
+<body>
+<div class="layout">
+
+<nav class="toc" id="toc" aria-label="Contents">
+  <h4>Contents</h4>
+  <a href="#overview">The big picture</a>
+  <div class="group">Start here: basic ideas</div>
+  <a href="#b-recap">1. What Projects 1–2 built</a>
+  <a href="#b-two">2. Two ways to write</a>
+  <a href="#b-mask">3. The [MASK] token</a>
+  <a href="#b-attn">4. Looking both ways</a>
+  <a href="#b-loss">5. The training loss</a>
+  <a href="#b-gen">6. Writing by unmasking</a>
+  <a href="#b-order">7. Which blanks first?</a>
+  <a href="#b-measure">8. Measuring quality fairly</a>
+  <a href="#b-speed">9. Steps, speed and quality</a>
+  <a href="#b-fair">10. A fair comparison</a>
+  <div class="group">From Projects 1–2 to Project 3</div>
+  <a href="#handover">What we reused</a>
+  <div class="group">The project</div>
+  <a href="#results">Final results</a>
+  <a href="#map">Decision map</a>
+  <div class="group">Part A: Prepare</div>
+  <a href="#p1">1. Environment</a>
+  <a href="#p2">2. Data</a>
+  <a href="#p3">3. Tokenizer + [MASK]</a>
+  <div class="group">Part B: Build</div>
+  <a href="#p4">4. Masking process</a>
+  <a href="#p5">5. Bidirectional model</a>
+  <a href="#p6">6. Training loss</a>
+  <div class="group">Part C: Train</div>
+  <a href="#p7">7. Training loop</a>
+  <a href="#p8">8. Fill-in test</a>
+  <div class="group">Part D: Generate</div>
+  <a href="#p9">9. Iterative unmasking</a>
+  <a href="#p10">10. Schedules</a>
+  <a href="#p11">11. Sampling</a>
+  <div class="group">Part E: Compare</div>
+  <a href="#p12">12. Diffusion vs AR</a>
+  <a href="#p13">13. Error analysis</a>
+  <a href="#p14">14. Ablations</a>
+  <div class="group">Part F: Conclude</div>
+  <a href="#p15">15. Repository</a>
+  <a href="#p16">16. Final report</a>
+  <a href="#lessons">Lessons learned</a>
+  <a href="#glossary">Glossary</a>
+</nav>
+
+<main>
+
+<header class="hero" id="overview">
+  <button class="theme-btn" id="themeBtn" type="button">Light / dark</button>
+  <span class="badge">All 16 phases done</span>
+  <h1>A Small Diffusion Language Model for Children's Stories</h1>
+  <p style="margin-top:0;font-size:19px;color:var(--text)">Writing a whole story at once, then fixing it in a few steps</p>
+  <p style="margin-top:0"><b>Project 3 tutorial</b></p>
+  <p>Projects 1 and 2 built models that write <b>left to right, one token at a time</b>. Here we build a different
+    kind of model, a <b>masked diffusion</b> model. It starts from a page of blanks and fills them in over a few rounds,
+    many blanks at once. Then we test whether it can match the left-to-right models of the <b>same size and the same
+    training data</b>, and whether it is faster. Everything runs on a normal computer's CPU.</p>
+  <p>This page explains every step: <b>what</b> we did, <b>why</b>, what <b>result</b> we got, and
+    <b>how that result told us what to do next</b>. You don't need to read Projects 1–2 first. Idea 1 recaps them.</p>
+
+  <h3 style="margin-top:22px">The one question</h3>
+  <p style="color:var(--text)"><b>Can a small diffusion language model write stories as well as a left-to-right
+    model of the same size, and is it faster?</b></p>
+
+  <h3 style="margin-top:22px">The one idea behind everything</h3>
+<pre><code>Left to right (Projects 1–2):   Tom → had → a → big → red → ball → .        one token per model call
+Diffusion (Project 3):          _ _ _ _ _ _ _  →  _ had _ big _ ball _  →  Tom had a big red ball .
+                                every blank is guessed in every round; a few rounds in total</code></pre>
+
+  <h3 style="margin-top:22px">The short answer</h3>
+  <p style="color:var(--text)"><b>No, not at this size.</b> The diffusion model writes clearly worse stories. It is
+    much faster only when it uses very few rounds, and then its stories fall apart.</p>
+
+  <h3 style="margin-top:22px">The pipeline (the order we did things in)</h3>
+  <div class="flow">
+    <span class="box">Same tools &amp; data</span><span class="arrow">→</span>
+    <span class="box">Add a [MASK] token</span><span class="arrow">→</span>
+    <span class="box">Hide tokens</span><span class="arrow">→</span>
+    <span class="box">Model that looks both ways</span><span class="arrow">→</span>
+    <span class="box s">Train 2 models</span><span class="arrow">→</span>
+    <span class="box">Fill-in test</span><span class="arrow">→</span>
+    <span class="box">Write by unmasking</span><span class="arrow">→</span>
+    <span class="box">Tune on practice prompts</span><span class="arrow">→</span>
+    <span class="box t">Compare with AR</span><span class="arrow">→</span>
+    <span class="box">Read the stories</span><span class="arrow">→</span>
+    <span class="box">Final answer</span>
+  </div>
+</header>
+
+<!-- ===================== BASIC IDEAS ===================== -->
+<section id="basics">
+  <h2>Start here: the basic ideas</h2>
+  <div class="card">
+    <p>This part explains, one by one, the ideas and words used in the project. Most figures can be played with:
+      press the buttons, move the sliders, or point at things.</p>
+    <p><b>The numbers and stories in the figures are real.</b> They come from our trained models, not from a
+      textbook. Where a figure is only a sketch, it says so.</p>
+  </div>
+
+  <!-- 1 -->
+  <div class="idea" id="b-recap">
+    <h3><span class="tag">Idea 1</span> What Projects 1 and 2 built</h3>
+    <p class="lead">Two left-to-right story writers that we now use as the yardstick.</p>
+    <p>A <b>language model</b> gives a probability to every possible next <b>token</b> (a word or a piece of a word;
+      our tokenizer knows 8,192 of them). To write, it picks a token, adds it, and guesses again. This is called
+      <b>autoregressive</b> (AR) writing.</p>
+    <ul>
+      <li><b>Project 1</b> trained a 13.9-million-parameter AR model on 1.77 million children's stories
+        (TinyStories). Test perplexity <b>5.74</b>. We call it the <b>AR teacher</b>.</li>
+      <li><b>Project 2</b> trained a smaller 5.3M AR model, alone and by copying the teacher (distillation). The one
+        trained alone (test perplexity 9.63) is our <b>AR small</b> model.</li>
+    </ul>
+    <p>Project 3 trains <b>two diffusion models with exactly these two sizes</b> and the same data, so the only
+      difference is the way of writing.</p>
+    <p class="analogy">two runners of the same height and the same training hours, but one runs and the other
+      cycles. If one wins, it's the method, not the body.</p>
+  </div>
+
+  <!-- 2 -->
+  <div class="idea" id="b-two">
+    <h3><span class="tag">Idea 2</span> Two ways to write a story</h3>
+    <p class="lead">One token per model call, or every blank at once, a few times.</p>
+    <p>An AR model needs <b>one model call per token</b>: a 200-token story is 200 calls, one after another.</p>
+    <p>A <b>diffusion</b> model starts from a window of 256 blanks. In each <b>step</b> (round) it guesses
+      <i>every</i> blank at once, keeps some of its guesses and leaves the rest blank. After S steps (we tried 4 to 32)
+      there are no blanks left. So it needs <b>S model calls, whatever the story length</b>. That is the promise:
+      speed.</p>
+    <div class="demo">
+      <div class="demo-title">Watch both ways write (real output of our 13.9M diffusion model, 8 steps, prompt "Tom had a big red ball.")</div>
+      <div class="controls" style="margin-top:0" id="wMode"></div>
+      <div class="controls"><label for="wStep">Model calls so far:</label>
+        <input type="range" id="wStep" min="0" max="8" value="0" style="max-width:300px">
+        <b id="wStepV">0</b><button class="btn" type="button" id="wPlay">▶ Play</button></div>
+      <div class="tokens" id="wTokens" style="margin-top:12px"></div>
+      <div class="facts" id="wFacts"></div>
+      <p class="demo-note">Grey boxes are blanks ([MASK]); blue boxes were filled in the latest call. Only the first 47
+        positions of the 256-token window are shown. In "left to right" mode the same final words are revealed one per
+        call, to show how many calls an AR model needs. Notice the diffusion model's slip "InOne day": two neighbours
+        chosen in the same step that didn't fit together.</p>
+    </div>
+    <p class="analogy">AR writing is a person typing a letter word by word. Diffusion is a person sketching the
+      whole page roughly, then going over it a few times, filling more gaps each time.</p>
+  </div>
+
+  <!-- 3 -->
+  <div class="idea" id="b-mask">
+    <h3><span class="tag">Idea 3</span> The [MASK] token and hiding tokens</h3>
+    <p class="lead">Training is a fill-in-the-blanks game with a random amount of blanks.</p>
+    <p>We add one new token to the vocabulary, <code>[MASK]</code> (number 8192), meaning "blank". To make a training
+      example we take a real story, pick a <b>masking level t</b> between 0 and 1 at random, and hide each token with
+      probability t. Sometimes 5% of the tokens are hidden, sometimes 95%. The model must guess the hidden ones.</p>
+    <ul>
+      <li>The story's first token, <code>&lt;BOS&gt;</code> (begin of story), is <b>never hidden</b>: it tells the
+        model "a story starts here".</li>
+      <li>The end token <code>&lt;EOS&gt;</code> <b>can be hidden</b>. The guide said not to, but a model that never
+        has to guess <code>&lt;EOS&gt;</code> can never decide where its story ends.</li>
+    </ul>
+    <div class="demo">
+      <div class="demo-title">Move the masking level t (sketch: words instead of tokens)</div>
+      <div class="controls" style="margin-top:0"><label for="mT">t =</label>
+        <input type="range" id="mT" min="0" max="100" value="30"><b id="mTV">30%</b></div>
+      <div class="tokens" id="mTokens" style="margin-top:12px"></div>
+      <div class="facts" id="mFacts"></div>
+    </div>
+    <p class="analogy">a teacher who sometimes blanks out one word in a sentence and sometimes almost all of
+      them. A student who can handle both can also write from an empty page.</p>
+  </div>
+
+  <!-- 4 -->
+  <div class="idea" id="b-attn">
+    <h3><span class="tag">Idea 4</span> Looking both ways (bidirectional attention)</h3>
+    <p class="lead">To fill a blank, it helps to read what comes after it.</p>
+    <p>Inside a Transformer, <b>attention</b> decides which other positions each position can look at. An AR model
+      uses a <b>causal mask</b>: each position sees only what is to its left, because when writing left to right, the
+      right side doesn't exist yet. A diffusion model fills blanks anywhere, so it uses <b>bidirectional</b>
+      attention: every position sees the whole window. That's the only change to Project 1's model.</p>
+    <div class="demo">
+      <div class="demo-title">Who can see whom? Rows are the position being predicted; a filled cell means "can look at"</div>
+      <div class="controls" style="margin-top:0" id="aMode"></div>
+      <div id="aGrid" style="margin-top:12px"></div>
+      <p class="demo-note" id="aNote"></p>
+    </div>
+    <p>We wrote a test for this: change a word to the <i>right</i> of a blank, and the prediction for the blank must
+      change. We then forced a causal mask on purpose, and the test failed, as it should.</p>
+  </div>
+
+  <!-- 5 -->
+  <div class="idea" id="b-loss">
+    <h3><span class="tag">Idea 5</span> The training loss</h3>
+    <p class="lead">Only the blanks are marked; the visible words are just help.</p>
+    <p>For each hidden position the model gives a probability to all 8,193 tokens. The loss is the usual
+      <b>cross-entropy</b>, −log(probability of the correct token), averaged over the <b>hidden positions only</b>:</p>
+<pre><code>loss = average over hidden positions of  −log p(correct token | the visible tokens)</code></pre>
+    <p>We also watch a second number, the <b>NELBO</b>. It weights each example by 1/t, so examples with few blanks
+      count more. The theory says that <b>e<sup>NELBO</sup> is an upper bound on the model's perplexity</b>: the true
+      perplexity is at most this number. We can't compute the exact perplexity of a diffusion model, so this bound is
+      how we compare it with AR models (Idea 8).</p>
+    <p class="analogy">a fill-in-the-blanks exam where only the blanks are graded, but you can read the rest of the
+      page to help you.</p>
+  </div>
+
+  <!-- 6 -->
+  <div class="idea" id="b-gen">
+    <h3><span class="tag">Idea 6</span> Writing by unmasking: three choices per step</h3>
+    <p class="lead">How many blanks to fill, which ones, and with what.</p>
+    <p>At each step the model guesses every blank. Then three rules decide what we keep:</p>
+    <ul>
+      <li><b>Schedule: how many</b> blanks to fill in this step. <i>Linear</i> fills the same number each step.
+        <i>Cosine</i> fills few at the start (when the model knows little) and many at the end. <i>Confidence</i>
+        is linear, plus every blank the model is at least 90% sure of.</li>
+      <li><b>Order: which</b> blanks. The ones the model is most sure of (<i>confidence order</i>), or
+        <i>random</i> ones (Idea 7).</li>
+      <li><b>Sampling: what</b> token goes in. Always the top guess (<i>argmax</i>), or a random pick from the top
+        guesses (<i>temperature, top-k, top-p</i>), as in Project 1.</li>
+    </ul>
+    <p>A filled token is never changed again. On the last step every remaining blank is filled.</p>
+    <div class="demo">
+      <div class="demo-title">How many of the 249 blanks each schedule fills per step (computed with our generation code's formula)</div>
+      <div class="controls" style="margin-top:0" id="sSched"></div>
+      <div class="controls" id="sSteps"></div>
+      <div id="sBars" style="margin-top:8px"></div>
+    </div>
+  </div>
+
+  <!-- 7 -->
+  <div class="idea" id="b-order">
+    <h3><span class="tag">Idea 7</span> Which blanks first? The biggest surprise</h3>
+    <p class="lead">Filling the "easy" blanks first makes the model repeat itself.</p>
+    <p>It sounds sensible to fill the blanks the model is most sure of first. But the model is most sure about
+      common phrases like "play with the ball". It puts them in many places in the first steps, and the later
+      steps then copy them. Filling <b>random</b> blanks instead spreads the decisions out and removes the
+      repetition. The text is a bit less smooth, but not stuck in a loop.</p>
+    <div class="two">
+      <div class="story"><div class="who" style="color:var(--bad)">Confidence order (32 steps)</div>
+        Tom had a big red ball. He likes to play with.. He likes the ball and throw it. He throw the ball and throw it
+        it. He bounce the ball and throws it every day. He day, Tom sees a big ball. It is to play with the ball. Tom
+        wants <mark>to play with the ball</mark>. He wants <mark>to play with the ball</mark>. He wants <mark>play with
+        the ball</mark>. He wants to share it with the ball. He runs <mark>to the ball</mark>. He sees the ball. He
+        wants <mark>to play with the ball</mark>. He runs <mark>to the ball</mark>.. He sees the ball. He is sad and
+        sad. He sees the ball.. Tom.</div>
+      <div class="story"><div class="who" style="color:var(--good)">Random order (32 steps)</div>
+        Tom had a big red ball. He runs to play with and trucks. He is happy and happy. He wants to get it. He sees a
+        big ball with a big ball on the floor. He sees the ball. He is sad. Tom wants his ball and play. "Mom, can
+        you want to play with it too. Tom runs and runs away. He tries to throw the ball. But he gets with the ball. He
+        sees a shiny ball. "Tom, Tom, I can play with the ball!" "No, it's make more noise!" she says.</div>
+    </div>
+    <p class="demo-note">Real output of the 13.9M model, same prompt, same seed, linear schedule, top-k 20; only the order
+      differs. Across 40 practice stories per setting, confidence order flagged 28–95% of stories as repetitive, random
+      order 0–3%.</p>
+  </div>
+
+  <!-- 8 -->
+  <div class="idea" id="b-measure">
+    <h3><span class="tag">Idea 8</span> Measuring quality fairly</h3>
+    <p class="lead">Diffusion and AR models don't give the same kind of number, so we use three yardsticks.</p>
+    <ul>
+      <li><b>Perplexity on the same test text.</b> AR models give an exact perplexity. Diffusion models give only an
+        upper bound, e<sup>NELBO</sup> (Idea 5). We compute both on the <b>same</b> 1,000 test windows. If the
+        diffusion bound is far above the AR value, the AR model is better there.</li>
+      <li><b>Teacher perplexity of a generated story.</b> We let the Project 1 teacher read each generated story and
+        report its perplexity: how surprising the story is to a good reader. Lower means more fluent. It works for
+        any model. (When the teacher scores its own stories the number is too low, so we use it only as a reference.)</li>
+      <li><b>Variety and loops.</b> Low teacher perplexity can also come from repeating "He sees the ball" again and
+        again. So we always report <b>Distinct-2</b> (the share of different word pairs; higher means more variety)
+        and the <b>repetition flag</b> (the share of stories that loop).</li>
+    </ul>
+    <p class="analogy">judging essays by how naturally they read, but also checking that nobody wrote the same
+      sentence ten times.</p>
+  </div>
+
+  <!-- 9 -->
+  <div class="idea" id="b-speed">
+    <h3><span class="tag">Idea 9</span> Steps, speed and quality</h3>
+    <p class="lead">Fewer steps are faster but worse. Where does diffusion beat AR?</p>
+    <div class="demo">
+      <div class="demo-title">Pick the number of diffusion steps (real test results of the 13.9M diffusion model)</div>
+      <div class="controls" style="margin-top:0" id="qSteps"></div>
+      <div class="two" style="margin-top:6px">
+        <div><b>Time to write one 256-token window</b> (seconds, lower = faster)<div class="bars" id="qTime"></div></div>
+        <div><b>Teacher perplexity of the story</b> (lower = better)<div class="bars" id="qPpl"></div></div>
+      </div>
+      <div class="facts" id="qFacts"></div>
+      <p class="demo-note">CPU, idle computer, mean of 5 runs. Neither implementation uses a key-value cache, a
+        common trick that makes AR writing several times faster. With it, the AR models would be faster than shown.
+        * The teacher scores its own stories, so its value is too low.</p>
+    </div>
+  </div>
+
+  <!-- 10 -->
+  <div class="idea" id="b-fair">
+    <h3><span class="tag">Idea 10</span> A fair comparison: practice prompts and a rule fixed in advance</h3>
+    <p class="lead">Choose settings on practice data, then test once.</p>
+    <p>A diffusion model has many settings: 3 schedules × 7 sampling rules × 4 step counts × 2 orders = <b>168</b>.
+      If we picked the best one on the test prompts, the test score would look better than it really is. So:</p>
+    <ul>
+      <li>All 168 settings were tried on <b>practice prompts</b> (beginnings of validation stories).</li>
+      <li>A <b>selection rule written down in advance</b> picked the winner: the lowest teacher perplexity among
+        settings with Distinct-2 ≥ 0.70 and at most 15% repetitive stories.</li>
+      <li>Only that winner was run on the 8 <b>test prompts</b> (the same ones as Project 1), 5 stories each.</li>
+    </ul>
+    <div class="warn"><b>Honest note:</b> with confidence order, <i>no</i> setting of the small model passed the rule,
+      because of the repetition (Idea 7). We then added random order to the search (and a backup rule), <b>before any
+      result of the big model existed</b>, and wrote this change down. The backup rule was never needed.</div>
+  </div>
+</section>
+
+<!-- ===================== HANDOVER ===================== -->
+<section id="handover">
+  <h2>What we reused from Projects 1 and 2</h2>
+  <div class="card">
+    <p>A fair comparison needs the <b>same data, the same tokens and the same yardsticks</b>. Project 3 reads these
+      from <code>../project1</code> and <code>../project2</code> and <b>never changes them</b>:</p>
+    <div class="pkg">
+      <div><b>project1/data/full/</b>The cleaned stories as token numbers, split into train / validation / test (no story in two splits).
+        <div class="use">Used for: training on the same 372.6M tokens and testing on the same stories.</div></div>
+      <div><b>project1/tokenizer.json</b>The 8,192-token vocabulary.
+        <div class="use">Used for: our tokenizer = this one + <code>[MASK]</code>. Every old token number keeps its meaning.</div></div>
+      <div><b>project1/src/</b>The GPT model code, the sampling rules, the story checks.
+        <div class="use">Used for: the same block design (made bidirectional), the same sampling code, the same repetition check.</div></div>
+      <div><b>project1/teacher/</b>The trained 13.9M AR model, with its fingerprints (MANIFEST).
+        <div class="use">Used for: the same-size AR comparison, and as the reader that scores every generated story.</div></div>
+      <div><b>project2 student (scratch)</b>The 5.3M AR model trained alone, 3,000 steps.
+        <div class="use">Used for: the same-size AR comparison for the small diffusion model.</div></div>
+      <div><b>Test prompts, seeds, settings</b>The 8 story beginnings, top-p 0.95, AdamW settings, step budgets.
+        <div class="use">Used for: identical conditions for every model.</div></div>
+      <div><b>requirements.lock.txt</b>The exact library versions.
+        <div class="use">Used for: the same tools, so numbers don't drift (Phase 1).</div></div>
+    </div>
+    <div class="warn"><b>Rule:</b> Project 3 never writes anything into <code>project1/</code> or <code>project2/</code>.
+      Its code lives in its own package, <code>mdlm/</code>, so it can never mix up files with Project 1's <code>src/</code>.</div>
+  </div>
+</section>
+
+<!-- ===================== RESULTS ===================== -->
+<section id="results">
+  <h2>Final results at a glance</h2>
+  <div class="card">
+    <div class="stats">
+      <div class="stat"><div class="v">≤ 11.7</div><div class="l">perplexity bound of the 13.9M diffusion model (same-size AR: 5.24, exact)</div></div>
+      <div class="stat"><div class="v">22.5</div><div class="l">teacher perplexity of its stories at 32 steps (AR 5.3M: 10.6)</div></div>
+      <div class="stat"><div class="v">12.9×</div><div class="l">faster than the same-size AR model, but only at 4 steps (perplexity 123)</div></div>
+      <div class="stat"><div class="v">97%</div><div class="l">of its stories have doubled or misplaced words (AR: 7%)</div></div>
+      <div class="stat"><div class="v">9.5 h</div><div class="l">to train the 13.9M model on the CPU (5.3M: 1.3 h)</div></div>
+      <div class="stat"><div class="v">random order</div><div class="l">the key setting: confidence order makes it loop</div></div>
+    </div>
+    <div class="tw"><table style="margin-top:18px">
+      <tr><th></th><th class="num">Diffusion 5.3M</th><th class="num">Diffusion 13.9M</th><th class="num">AR 5.3M</th><th class="num">AR 13.9M</th></tr>
+      <tr><td>Training data / steps</td><td class="num">49M tokens</td><td class="num">164M tokens</td><td class="num">49M tokens</td><td class="num">164M tokens</td></tr>
+      <tr><td><b>Perplexity on the same test windows</b></td><td class="num">≤ 29.5</td><td class="num">≤ 11.7</td><td class="num">8.76</td><td class="num"><b>5.24</b></td></tr>
+      <tr><td><b>Teacher perplexity of stories</b> (32 steps for diffusion)</td><td class="num">154.7</td><td class="num">22.5</td><td class="num"><b>10.6</b></td><td class="num">3.7*</td></tr>
+      <tr><td>Distinct-2 (variety)</td><td class="num">0.745</td><td class="num">0.702</td><td class="num">0.762</td><td class="num">0.730</td></tr>
+      <tr><td>Repetitive stories</td><td class="num">0%</td><td class="num">2.5%</td><td class="num">5%</td><td class="num">7.5%</td></tr>
+      <tr><td>Time for one 256-token window</td><td class="num">0.10–0.72 s</td><td class="num">0.12–0.84 s</td><td class="num">0.85 s</td><td class="num">1.56 s</td></tr>
+      <tr><td>Model calls per story</td><td class="num">4–32</td><td class="num">4–32</td><td class="num">~183</td><td class="num">~189</td></tr>
+    </table></div>
+    <p class="demo-note">* the teacher scores its own stories, so this value is biased low.</p>
+    <p><b>In one sentence:</b> at equal size and data the diffusion model writes clearly worse stories than the AR
+      model; it is much faster only with so few steps that its stories fall apart, and at its best setting it is
+      about as fast as an AR model 2.6× smaller that writes 2× more fluent stories.</p>
+  </div>
+</section>
+
+<section id="map">
+  <h2>Decision map: how each result led to the next step</h2>
+  <div class="card tw">
+    <table>
+      <tr><th>#</th><th>Question we asked</th><th>What the result said</th><th>So we decided…</th></tr>
+      <tr><td>1</td><td>Are the tools the same as Projects 1–2?</td><td>Same versions (PyTorch 2.14.1, CPU)</td><td>Numbers can be compared</td></tr>
+      <tr><td>2</td><td>How should training windows look?</td><td>15% of stories are longer than 256 tokens</td><td>Windows start at a story's beginning; the end token can be hidden</td></tr>
+      <tr><td>3</td><td>How do we add a blank token without breaking anything?</td><td>[MASK] = 8192, old numbers unchanged</td><td>Build the masking</td></tr>
+      <tr><td>4</td><td>Does the masking do what it should?</td><td>6 tests pass</td><td>Build the model</td></tr>
+      <tr><td>5</td><td>Does the model really look both ways?</td><td>4 tests pass; the right-side test fails with a forced causal mask</td><td>Write the loss</td></tr>
+      <tr><td>6</td><td>Does a tiny model learn at all?</td><td>Loss 6.23 → 6.01 in 5 seconds</td><td>Train the real models</td></tr>
+      <tr><td>7</td><td>Do the real models learn?</td><td>Val loss 3.86 (small), 3.05 (base); still falling</td><td>Check filling-in before free writing</td></tr>
+      <tr><td>8</td><td>Can they fill real blanks?</td><td>69% right at 20% hidden, only 9% at 100%</td><td>The denoiser works; now write from blanks</td></tr>
+      <tr><td>9</td><td>Does the writing code work?</td><td>19 tests pass</td><td>Search the settings</td></tr>
+      <tr><td>10</td><td>Which schedule and order?</td><td>Confidence order loops; no small-model setting passed the rule</td><td>Add random order (written down before any base result)</td></tr>
+      <tr><td>11</td><td>Which sampling rule?</td><td>Top-k 20 / temperature 0.7 balance best; argmax loops</td><td>Selected: random order, top-k, 32 steps</td></tr>
+      <tr><td>12</td><td>Better or faster than AR?</td><td>Worse at every step count; faster only with few steps</td><td>Look at what goes wrong</td></tr>
+      <tr><td>13</td><td>What kind of mistakes?</td><td>Doubled / misplaced words in 97% vs 7% of stories</td><td>Explained by same-step choices</td></tr>
+      <tr><td>14</td><td>What matters most?</td><td>Reveal order and model size; schedule hardly</td><td>Write it up</td></tr>
+      <tr><td>15–16</td><td>What is the answer?</td><td>See "Final results"</td><td>Project 3 is finished</td></tr>
+    </table>
+  </div>
+</section>
+
+<!-- ===================== PHASES ===================== -->
+<div class="note" style="margin-top:28px">All commands are run from the <code>project3</code> folder with its
+  <code>.venv</code> active (Windows). Project 3 sits next to Projects 1 and 2:
+<pre style="margin:8px 0 0"><code>Projrcts List/
+├── project1/    data/full/  teacher/  src/        ← read only
+├── project2/    checkpoints/student_scratch/      ← read only
+└── project3/    configs/  mdlm/  scripts/  tests/  results/  checkpoints/</code></pre></div>
+
+<!-- P1 -->
+<div class="phase" id="p1">
+  <div class="phase-head"><div class="phase-num">1</div><div><h3>Environment setup</h3>
+    <div class="sub">The same tools as Projects 1–2, in a separate box</div></div></div>
+  <div class="part"><h4>What and why</h4>
+    <p>Project 3 gets its own Python environment, so it can't break the others, with the <b>same versions</b>, so
+      the tokenizer and the numbers match exactly.</p>
+  </div>
+  <div class="part"><h4>What we did</h4>
+<pre><code>python -m venv .venv
+.venv\Scripts\activate
+pip install torch==2.14.1 --index-url https://download.pytorch.org/whl/cpu
+pip install -r requirements.txt</code></pre>
+  </div>
+  <div class="part"><h4>Result</h4>
+    <ul><li>Python 3.12.10, PyTorch 2.14.1 (CPU), tokenizers 0.23.3, NumPy 2.5.4. No GPU: 24 CPU threads.</li>
+      <li>Fixed random seeds (1337 for training) so every run can be repeated.</li></ul>
+  </div>
+  <div class="decide"><h4>How we decided the next step</h4><p>The tools match. Next: look at the data the
+    way a diffusion model will see it.</p></div>
+</div>
+
+<!-- P2 -->
+<div class="phase" id="p2">
+  <div class="phase-head"><div class="phase-num">2</div><div><h3>Reuse and inspect TinyStories</h3>
+    <div class="sub">Same stories, same splits, cut into windows that start at a story</div></div></div>
+  <div class="part"><h4>What and why</h4>
+    <p>We reuse Project 1's splits: <b>train</b> to learn, <b>validation</b> to watch progress and choose settings,
+      <b>test</b> only for the final numbers. A diffusion model writes a fixed-size window (256 tokens), so we
+      measured how many stories fit.</p>
+  </div>
+  <div class="part"><h4>Result</h4>
+    <div class="tw"><table>
+      <tr><th>Split</th><th class="num">Stories</th><th class="num">Tokens</th><th class="num">Average length</th><th class="num">Longer than 256 tokens</th></tr>
+      <tr><td>train</td><td class="num">1,772,187</td><td class="num">372.6M</td><td class="num">210</td><td class="num">16.0%</td></tr>
+      <tr><td>validation</td><td class="num">10,995</td><td class="num">2.27M</td><td class="num">206</td><td class="num">14.8%</td></tr>
+      <tr><td>test</td><td class="num">10,995</td><td class="num">2.26M</td><td class="num">206</td><td class="num">14.6%</td></tr>
+    </table></div>
+  </div>
+  <div class="decide"><h4>How we decided the next step</h4>
+    <ul><li>Every training window <b>starts at a story's beginning</b> (<code>&lt;BOS&gt;</code>), like generation
+      does. If the story is short, the window continues into the next story; no padding is needed.</li>
+      <li>85% of stories end inside the window, so the model sees <code>&lt;EOS&gt;</code> often and can learn where
+        stories end. Next: add the blank token.</li></ul></div>
+</div>
+
+<!-- P3 -->
+<div class="phase" id="p3">
+  <div class="phase-head"><div class="phase-num">3</div><div><h3>Tokenizer and the [MASK] token</h3>
+    <div class="sub">One new token, nothing else changes</div></div></div>
+  <div class="part"><h4>What and why</h4>
+    <p>See <a href="#b-mask">Idea 3</a>. We copy Project 1's tokenizer and add <code>[MASK]</code>. Every existing
+      token keeps its number, so our data files and the AR models stay compatible.</p>
+<pre><code>Original:  &lt;BOS&gt; The boy found a dog . &lt;EOS&gt;
+Corrupt:   &lt;BOS&gt; The [MASK] found [MASK] dog . &lt;EOS&gt;</code></pre>
+  </div>
+  <div class="part"><h4>Result</h4>
+    <ul><li><code>[MASK]</code> = 8192; tokens 0–8191 unchanged (PAD 0, UNK 1, BOS 2, EOS 3).</li>
+      <li>Round trip: "The boy found a dog." → [2, 1607, 527, 595, 262, 645, 17, 3] → "The boy found a dog." ✅</li>
+      <li>The diffusion model's vocabulary is 8,193: one extra row in its embedding table.</li></ul>
+  </div>
+  <div class="decide"><h4>How we decided the next step</h4><p>The blank exists. Next: code that hides tokens
+    correctly, with tests.</p></div>
+</div>
+
+<!-- P4 -->
+<div class="phase" id="p4">
+  <div class="phase-head"><div class="phase-num">4</div><div><h3>Forward masking process</h3>
+    <div class="sub">Hide each token with probability t</div></div></div>
+  <div class="part"><h4>What and why</h4>
+    <p>For each training window: pick t between 0.001 and 1, then hide each token (except the first,
+      <code>&lt;BOS&gt;</code>) with probability t. Code: <code>mdlm/masking.py</code>.</p>
+  </div>
+  <div class="part"><h4>What we did</h4><pre><code>python -m pytest tests\test_masking.py -v</code></pre></div>
+  <div class="part"><h4>Result</h4>
+    <ul><li>6 tests pass: <code>&lt;BOS&gt;</code> is never hidden; t = 1 hides everything else including
+      <code>&lt;EOS&gt;</code>; the hidden share matches t (within 1% over 2,000 windows); at least one token is
+      always hidden; visible tokens never change; same seed → same blanks.</li></ul>
+  </div>
+  <div class="decide"><h4>How we decided the next step</h4><p>Masking is correct. Next: the model that fills the blanks.</p></div>
+</div>
+
+<!-- P5 -->
+<div class="phase" id="p5">
+  <div class="phase-head"><div class="phase-num">5</div><div><h3>Bidirectional Transformer denoiser</h3>
+    <div class="sub">Project 1's model without the causal mask</div></div></div>
+  <div class="part"><h4>What and why</h4>
+    <p>See <a href="#b-attn">Idea 4</a>. Same blocks as Project 1 (layer norm, attention, MLP, learned positions,
+      shared input/output embeddings); the only change is that attention looks both ways. Code: <code>mdlm/model.py</code>.</p>
+  </div>
+  <div class="part"><h4>What we did</h4><pre><code>python -m pytest tests\test_attention.py -v</code></pre></div>
+  <div class="part"><h4>Result</h4>
+    <ul><li>4 tests pass: output shape [batch, 256, 8193]; a change to the <b>right</b> of a blank changes its
+      prediction; padding is ignored; the loss uses only blanks and every parameter gets a gradient.</li>
+      <li><b>We broke it on purpose:</b> with a causal mask forced in, the right-side test failed. So the test really
+        checks what it claims.</li>
+      <li>Sizes: <b>5,322,496</b> (small) and <b>13,891,968</b> (base) parameters, the AR models plus one token row.</li></ul>
+  </div>
+  <div class="decide"><h4>How we decided the next step</h4><p>The model sees both sides. Next: the loss, and a tiny test run.</p></div>
+</div>
+
+<!-- P6 -->
+<div class="phase" id="p6">
+  <div class="phase-head"><div class="phase-num">6</div><div><h3>Masked-token training loss</h3>
+    <div class="sub">Grade only the blanks</div></div></div>
+  <div class="part"><h4>What and why</h4>
+    <p>See <a href="#b-loss">Idea 5</a>. Cross-entropy on the hidden positions only, plus the NELBO for comparison
+      with AR models.</p>
+  </div>
+  <div class="part"><h4>What we did</h4><pre><code>python -m mdlm.train --config configs\smoke.yaml      # 5 seconds, 1.5M-parameter model</code></pre></div>
+  <div class="part"><h4>Result</h4>
+    <ul><li>60 steps: validation loss 6.23 → 6.01. The loss is finite and every parameter learns.</li></ul>
+  </div>
+  <div class="decide"><h4>How we decided the next step</h4><p>A smoke test that learns means the whole chain
+    works. Next: the real training runs.</p></div>
+</div>
+
+<!-- P7 -->
+<div class="phase" id="p7">
+  <div class="phase-head"><div class="phase-num">7</div><div><h3>Training loop</h3>
+    <div class="sub">Two models, each matched to an AR model</div></div></div>
+  <div class="part"><h4>What and why</h4>
+    <p>Same optimizer as Projects 1–2 (AdamW, warm-up then cosine decay of the learning rate 6e-4 → 6e-5, batch
+      64 × 256 tokens). Validation uses the <b>same 800 windows with the same blanks</b> every time, so the curve
+      shows real progress, not luck. Checkpoints are saved, and training can resume after a crash.</p>
+    <div class="tw"><table>
+      <tr><th>Model</th><th>Shape</th><th class="num">Parameters</th><th class="num">Steps / tokens</th><th>Matched AR model</th></tr>
+      <tr><td>mdlm_small</td><td>4 layers, width 256</td><td class="num">5.32M</td><td class="num">3,000 / 49M</td><td>Project 2 student, trained alone</td></tr>
+      <tr><td>mdlm_base</td><td>6 layers, width 384</td><td class="num">13.89M</td><td class="num">10,000 / 164M</td><td>Project 1 teacher</td></tr>
+    </table></div>
+  </div>
+  <div class="part"><h4>What we did</h4><pre><code>powershell -ExecutionPolicy Bypass -File scripts\run_training.ps1   # small, then base</code></pre></div>
+  <div class="part"><h4>Result</h4>
+    <div class="demo">
+      <div class="demo-title">Validation curves (real logs). Point at a dot for its value.</div>
+      <div class="controls" style="margin-top:0" id="cMetric"></div>
+      <svg class="chart" id="chart" viewBox="0 0 640 330" role="img" aria-label="Validation curves of the two diffusion models"></svg>
+      <div class="legend"><span style="display:flex;align-items:center;gap:6px;font-size:13px"><i style="width:16px;height:3px;display:inline-block;background:var(--diffs)"></i>mdlm_small (5.3M)</span>
+        <span style="display:flex;align-items:center;gap:6px;font-size:13px"><i style="width:16px;height:3px;display:inline-block;background:var(--kd2)"></i>mdlm_base (13.9M)</span></div>
+    </div>
+    <ul>
+      <li><b>Small:</b> 1.32 h; final validation loss 3.86, 31% of blanks right, perplexity bound 28.6.</li>
+      <li><b>Base:</b> 9.54 h; final validation loss <b>3.05</b>, <b>42%</b> of blanks right, perplexity bound <b>11.2</b>.</li>
+      <li>Both curves have a flat start (the model only guesses common words, ~10% right), then a sharp drop when it
+        learns to use the context, then slow gains. Both still fall at the end.</li>
+    </ul>
+    <div class="warn"><b>Timing note:</b> other programs shared the CPU during training, so these hours can't be
+      compared with Projects 1–2. The speed test (Phase 12) was run on an idle computer.</div>
+  </div>
+  <div class="decide"><h4>How we decided the next step</h4><p>The base model's bound (11.2) is already about 2×
+    the AR teacher's exact validation perplexity (5.90). Before writing stories, check that the model can fill real
+    blanks.</p></div>
+</div>
+
+<!-- P8 -->
+<div class="phase" id="p8">
+  <div class="phase-head"><div class="phase-num">8</div><div><h3>Verify denoising before free generation</h3>
+    <div class="sub">Hide part of a real story and let the model fill it in one go</div></div></div>
+  <div class="part"><h4>What and why</h4>
+    <p>If the model can't fill blanks in real text, free writing can't work. We hide 20%, 50%, 80% or 100% of 1,000
+      real test windows and count how many blanks it fills correctly in a single pass.</p>
+  </div>
+  <div class="part"><h4>What we did</h4><pre><code>python -m mdlm.evaluate --stage recon --run mdlm_base     # and --run mdlm_small</code></pre></div>
+  <div class="part"><h4>Result</h4>
+    <div class="demo">
+      <div class="demo-title">Share of blanks filled with exactly the right token</div>
+      <div class="bars" id="reconBars"></div>
+      <div class="facts"><span><i style="display:inline-block;width:12px;height:12px;border-radius:3px;background:var(--diffs)"></i> small (5.3M)</span>
+        <span><i style="display:inline-block;width:12px;height:12px;border-radius:3px;background:var(--kd2)"></i> base (13.9M)</span></div>
+    </div>
+    <p>With most of the story visible, the base model restores 69% of the blanks. With <b>nothing</b> visible both
+      models get only 9%, the most common words, because there is nothing to go on.</p>
+  </div>
+  <div class="decide"><h4>How we decided the next step</h4><p>The denoiser works. Free writing starts at 100%
+    blanks, the hardest case, so it must go step by step. Next: the step-by-step writing code.</p></div>
+</div>
+
+<!-- P9 -->
+<div class="phase" id="p9">
+  <div class="phase-head"><div class="phase-num">9</div><div><h3>Iterative non-autoregressive generation</h3>
+    <div class="sub">Start from blanks, fill some each step</div></div></div>
+  <div class="part"><h4>What and why</h4>
+    <p>See <a href="#b-gen">Idea 6</a>. Code: <code>mdlm/generate.py</code>. The window is
+      <code>&lt;BOS&gt;</code> + prompt + 249 or so blanks; the story is everything up to the first
+      <code>&lt;EOS&gt;</code> the model writes.</p>
+  </div>
+  <div class="part"><h4>What we did</h4>
+<pre><code>python -m pytest tests\test_generation.py -v
+python scripts\try_model.py --prompt "Tom found a red box" --steps 8 --show_steps</code></pre>
+  </div>
+  <div class="part"><h4>Result</h4>
+    <ul><li>19 tests pass: no blanks left for every schedule and every step count from 1 to 64; at most S model
+      calls; the prompt is never changed; the schedule fills exactly the planned number (31 blanks in 4 linear steps →
+      8, 8, 8, 7); same seed → same story.</li>
+      <li><code>--show_steps</code> prints the window after every step, so you can watch the story appear (as in <a href="#b-two">Idea 2</a>).</li></ul>
+  </div>
+  <div class="decide"><h4>How we decided the next step</h4><p>The writing code is correct. Next: find the best
+    settings, on practice prompts only.</p></div>
+</div>
+
+<!-- P10 -->
+<div class="phase" id="p10">
+  <div class="phase-head"><div class="phase-num">10</div><div><h3>Generation schedules</h3>
+    <div class="sub">How many blanks per step, and which ones</div></div></div>
+  <div class="part"><h4>What and why</h4>
+    <p>We tried all 168 settings (<a href="#b-fair">Idea 10</a>) on 8 practice prompts × 5 stories each, and scored
+      every setting with teacher perplexity, Distinct-2 and the repetition flag.</p>
+  </div>
+  <div class="part"><h4>What we did</h4><pre><code>python -m mdlm.evaluate --stage grid --run mdlm_base</code></pre></div>
+  <div class="part"><h4>Result (13.9M model, random order, top-k 20; teacher perplexity, lower is better)</h4>
+    <div class="tw"><table>
+      <tr><th>Schedule</th><th class="num">4 steps</th><th class="num">8 steps</th><th class="num">16 steps</th><th class="num">32 steps</th></tr>
+      <tr><td>linear</td><td class="num">132.4</td><td class="num">45.3</td><td class="num">28.2</td><td class="num">21.2</td></tr>
+      <tr><td>cosine</td><td class="num">115.7</td><td class="num">40.0</td><td class="num">25.6</td><td class="num">19.5</td></tr>
+      <tr><td>confidence (≥ 90% sure)</td><td class="num">132.4</td><td class="num">45.2</td><td class="num">27.5</td><td class="num">23.2</td></tr>
+    </table></div>
+    <ul><li><b>More steps always help.</b> The biggest jump is from 4 to 8 steps.</li>
+      <li><b>Cosine is about 10% better than linear.</b> The confidence schedule saves almost no steps, because the
+        model is rarely 90% sure. For the small model it never triggered at all.</li>
+      <li><b>Order matters far more than schedule:</b> with confidence order, 28–95% of stories looped (<a href="#b-order">Idea 7</a>).</li></ul>
+  </div>
+  <div class="decide"><h4>How we decided the next step</h4>
+    <p>For the small model, no confidence-order setting passed the rule, so random order was added to the search
+      (written down before any base result). For the base model, 63 of 168 settings passed. <b>Selected:</b>
+      confidence schedule, top-k 20, random order, 32 steps (perplexity 23.2, Distinct-2 0.706, 0% loops).</p></div>
+</div>
+
+<!-- P11 -->
+<div class="phase" id="p11">
+  <div class="phase-head"><div class="phase-num">11</div><div><h3>Sampling experiments</h3>
+    <div class="sub">Which token goes into a filled blank</div></div></div>
+  <div class="part"><h4>Result (13.9M model, linear schedule, 32 steps): perplexity / Distinct-2 / looping stories</h4>
+    <div class="tw"><table>
+      <tr><th>Sampling</th><th class="num">Confidence order</th><th class="num">Random order</th></tr>
+      <tr><td>argmax (always the top guess)</td><td class="num">75.8 / 0.40 / 88%</td><td class="num">7.0 / 0.41 / 85%</td></tr>
+      <tr><td>temperature 0.7</td><td class="num">19.5 / 0.50 / 63%</td><td class="num">17.2 / 0.67 / 0%</td></tr>
+      <tr><td>temperature 1.0</td><td class="num">12.8 / 0.50 / 63%</td><td class="num">74.1 / 0.83 / 0%</td></tr>
+      <tr><td>top-k 20</td><td class="num">17.7 / 0.49 / 60%</td><td class="num">21.2 / 0.70 / 0%</td></tr>
+      <tr><td>top-k 50</td><td class="num">15.2 / 0.51 / 65%</td><td class="num">26.3 / 0.74 / 0%</td></tr>
+      <tr><td>top-p 0.95</td><td class="num">12.9 / 0.52 / 63%</td><td class="num">44.9 / 0.80 / 0%</td></tr>
+    </table></div>
+    <p>The usual trade-off: narrow sampling reads smoother but repeats; wide sampling is more varied but less fluent.
+      <b>Look at "random order + argmax": perplexity 7.0, the best number in the table, but 85% of its stories
+      loop.</b> That is why the rule also checks variety and loops.</p>
+  </div>
+  <div class="decide"><h4>How we decided the next step</h4><p>With the setting fixed, run it once on the test
+    prompts and compare with the AR models.</p></div>
+</div>
+
+<!-- P12 -->
+<div class="phase" id="p12">
+  <div class="phase-head"><div class="phase-num">12</div><div><h3>Compare with the autoregressive model</h3>
+    <div class="sub">Same test text, same prompts, same window, same computer</div></div></div>
+  <div class="part"><h4>What we did</h4>
+<pre><code>python -m mdlm.evaluate --stage nelbo --run mdlm_base    # perplexity on the same 1,000 test windows
+python -m mdlm.evaluate --stage final --run mdlm_base    # 8 test prompts × 5 stories, all models
+python scripts\benchmark_generation.py                  # speed, on an idle computer</code></pre>
+  </div>
+  <div class="part"><h4>Result 1: perplexity on identical test windows (95% intervals)</h4>
+    <div class="tw"><table>
+      <tr><th>Model</th><th class="num">Perplexity</th><th>Kind</th></tr>
+      <tr><td>Diffusion 5.3M</td><td class="num">≤ 29.5 [28.7, 30.2]</td><td>upper bound</td></tr>
+      <tr><td>Diffusion 13.9M</td><td class="num">≤ 11.7 [11.4, 12.0]</td><td>upper bound</td></tr>
+      <tr><td>AR 5.3M</td><td class="num">8.76 [8.55, 8.99]</td><td>exact</td></tr>
+      <tr><td>AR 13.9M</td><td class="num"><b>5.24</b> [5.12, 5.37]</td><td>exact</td></tr>
+    </table></div>
+    <p>A bound can be loose, but gaps of 2.2× (base) and 3.4× (small) are too big to blame only on that.</p>
+  </div>
+  <div class="part"><h4>Result 2: stories and speed</h4>
+    <p>See the interactive figure in <a href="#b-speed">Idea 9</a>. At 4 steps the diffusion model is 12.9× faster
+      than the same-size AR model, but its stories score 123. At 32 steps it scores 22.5 and takes 0.84 s, about the
+      same time as the 2.6× smaller AR model, which scores 10.6.</p>
+  </div>
+  <div class="decide"><h4>How we decided the next step</h4><p>Numbers say "worse". Next: read the stories to
+    see <i>how</i> they are worse.</p></div>
+</div>
+
+<!-- P13 -->
+<div class="phase" id="p13">
+  <div class="phase-head"><div class="phase-num">13</div><div><h3>Error analysis</h3>
+    <div class="sub">120 stories, mixed and labelled without knowing the author</div></div></div>
+  <div class="part"><h4>What and why</h4>
+    <p>60 stories from the diffusion model (selected setting) and 60 from the AR model of the same size, from the
+      same 8 test prompts, were shuffled and labelled <b>blind</b>. Categories from Project 1, plus one new one:
+      <b>local incoherence</b>, a word that doesn't fit its neighbours (doubled words, stray punctuation, a word in an
+      impossible place).</p>
+    <div class="warn"><b>Who labelled:</b> the labels were produced by an AI assistant (Claude), not by a human
+      annotator, and have not been checked by a person. Blinding is imperfect: broken diffusion text is easy to
+      recognise.</div>
+  </div>
+  <div class="part"><h4>Result</h4>
+    <div class="demo">
+      <div class="demo-title">Share of stories with each error (60 stories per model)</div>
+      <div class="bars" id="errBars"></div>
+      <div class="facts"><span><i style="display:inline-block;width:12px;height:12px;border-radius:3px;background:var(--kd2)"></i> diffusion 13.9M</span>
+        <span><i style="display:inline-block;width:12px;height:12px;border-radius:3px;background:var(--teacher)"></i> AR 13.9M</span></div>
+    </div>
+    <div class="story"><div class="who" style="color:var(--bad)">Typical diffusion slips (from the labelled stories)</div>
+      "Ben and his mom went <mark>to the park to the park</mark>." · "One day, a little girl named Lily went <mark>for for</mark> a walk"
+      · "<mark>Suddenly,,</mark> Tom saw a big cat" · "Lily <mark>was Lily went</mark> to the park" · "the dragon <mark>caught caught</mark> <mark>the dragon</mark> again"</div>
+    <ul>
+      <li><b>Local incoherence is the diffusion signature: 97% vs 7%.</b> Tokens filled in the same step can't see
+        each other's choice, so neighbours clash.</li>
+      <li>Grammar errors (100% vs 27%) and character mix-ups (92% vs 62%) follow from the same cause.</li>
+      <li>Contradictions are near 100% for <b>both</b> with this strict rule, so that category doesn't tell them apart.</li>
+      <li>Loops are rare for both (3% vs 7%) thanks to random order.</li>
+    </ul>
+  </div>
+  <div class="decide"><h4>How we decided the next step</h4><p>We know what goes wrong and why. Next: collect
+    which settings mattered most.</p></div>
+</div>
+
+<!-- P14 -->
+<div class="phase" id="p14">
+  <div class="phase-head"><div class="phase-num">14</div><div><h3>Research experiments and ablations</h3>
+    <div class="sub">Change one thing, see how much it matters</div></div></div>
+  <div class="part"><h4>Result</h4>
+    <div class="tw"><table>
+      <tr><th>Question</th><th>Answer</th></tr>
+      <tr><td>More steps?</td><td>Always better (132 → 45 → 28 → 21 at 4 → 32 steps); gains shrink after 16.</td></tr>
+      <tr><td>Which blanks first?</td><td><b>The biggest effect.</b> Confidence order loops; random order doesn't.</td></tr>
+      <tr><td>Schedule?</td><td>Cosine ~10% better than linear; the confidence schedule is no better.</td></tr>
+      <tr><td>Prompt needed?</td><td>No: stories without a prompt are about as good (26.3 vs 23.2 at 32 steps).</td></tr>
+      <tr><td>Bigger model?</td><td><b>Large gain:</b> 5.3M → 13.9M takes story perplexity from 155 to 22.5.</td></tr>
+      <tr><td>Longer training?</td><td>Both curves still fall at the end, so part of the gap is the fixed budget.</td></tr>
+    </table></div>
+    <p><b>Not run</b> (each needs a full retrain or a code change): other masking schedules during training, giving
+      the model the masking level t as an input, an AR model with a key-value cache for the speed test, and a human
+      check of the error labels.</p>
+  </div>
+  <div class="decide"><h4>How we decided the next step</h4><p>Enough evidence to answer the question. Next:
+    tidy the repository and write the report.</p></div>
+</div>
+
+<!-- P15 -->
+<div class="phase" id="p15">
+  <div class="phase-head"><div class="phase-num">15</div><div><h3>Repository structure</h3>
+    <div class="sub">Where everything is</div></div></div>
+<pre><code>project3/
+├── configs/      smoke.yaml  small.yaml  base.yaml        model and training settings
+├── mdlm/         tokens  data  masking  model  train  generate  evaluate
+├── scripts/      run_training.ps1  try_model.py  benchmark_generation.py
+│                 plot_curves.py  make_readme_figures.py  error_counts.py  error_labels/
+├── tests/        test_masking  test_attention  test_generation      29 tests
+├── tokenizer/    tokenizer.json                           Project 1's + [MASK]
+├── results/      metrics/  generations/  figures/
+├── checkpoints/  mdlm_small/  mdlm_base/                  (not in git: too big)
+├── INSTRUCTIONS.md                                       every phase, decision and number
+└── README.md                                             the answer</code></pre>
+</div>
+
+<!-- P16 -->
+<div class="phase" id="p16">
+  <div class="phase-head"><div class="phase-num">16</div><div><h3>Final report</h3>
+    <div class="sub">The answer to the one question</div></div></div>
+  <div class="part"><h4>Answer</h4>
+    <ol>
+      <li><b>Quality:</b> at equal size and data the diffusion model is clearly worse than the AR model, in perplexity
+        (≤ 11.7 vs 5.24) and in the stories it writes. Even the AR model 2.6× smaller wins.</li>
+      <li><b>Speed:</b> 12.9× faster at 4 steps, but those stories are unreadable. At 32 steps (its best stories) it is
+        about as fast as the smaller AR model. A key-value cache would make the AR models faster still.</li>
+      <li><b>Reveal order is the key setting:</b> confidence order loops, random order doesn't.</li>
+      <li><b>Size helps a lot</b> and both models were still learning, so the gap may shrink with bigger models and
+        longer training. At this tiny size and budget it does not close.</li>
+    </ol>
+  </div>
+  <div class="warn"><b>Limitations:</b> CPU only; one training seed per model; one dataset; training times slowed by
+    other programs; the selection rule was changed once (written down before the base results); error labels by an AI
+    assistant, not human-verified.</div>
+  <div class="decide"><h4>How we decided we were done</h4><p>The question has an answer backed by three kinds of
+    evidence (likelihood, stories, speed) and an error analysis that explains it. <b>Project 3 is finished.</b></p></div>
+</div>
+
+<section id="lessons">
+  <h2>Lessons learned (useful for any ML project)</h2>
+  <div class="card"><ul>
+    <li><b>Match the comparison.</b> Same size, same data, same tokens, same test: then a difference means something.</li>
+    <li><b>Test the one thing you changed, and break it on purpose.</b> The right-side attention test proved itself by failing with a causal mask.</li>
+    <li><b>Check the easy task before the hard one.</b> The fill-in test showed the model works before free writing showed it struggles.</li>
+    <li><b>A single number can lie.</b> The lowest perplexity in the grid (7.0) came from stories that loop.</li>
+    <li><b>Tune on practice data, test once,</b> and write down any rule change and when you made it.</li>
+    <li><b>"Faster" needs a quality next to it.</b> 12.9× faster means little if the stories are unreadable.</li>
+    <li><b>Read the outputs.</b> The doubled words explain the numbers better than any table.</li>
+  </ul></div>
+</section>
+
+<section id="glossary">
+  <h2>Glossary</h2>
+  <div class="card"><dl class="gloss">
+    <div class="grp">From Projects 1–2</div>
+    <dt>Language model</dt><dd>a program that gives a probability to every possible token at a position.</dd>
+    <dt>Token / tokenizer</dt><dd>a piece of text with a number / the tool that cuts text into tokens (8,192 + [MASK] here).</dd>
+    <dt>Parameter</dt><dd>one number inside the model that training adjusts (5.3M and 13.9M here).</dd>
+    <dt>Transformer, layer, width</dt><dd>the model design; layers are stacked blocks; width is the length of each token's number list (256 or 384).</dd>
+    <dt>Cross-entropy (loss)</dt><dd>−log(probability of the correct token). Lower is better.</dd>
+    <dt>Perplexity</dt><dd>e<sup>loss</sup>: roughly how many tokens the model is choosing between. Lower is better.</dd>
+    <dt>Train / validation / test</dt><dd>data to learn from / to check progress and choose settings / for the final numbers only.</dd>
+    <dt>Top-k, top-p, temperature, argmax</dt><dd>ways to pick a token from the probabilities: from the k best / from the smallest set covering p / after flattening or sharpening / always the best.</dd>
+    <dt>Distinct-2</dt><dd>share of different word pairs in a story: a measure of variety.</dd>
+    <dt>Teacher / AR teacher</dt><dd>Project 1's 13.9M left-to-right model; here a comparison model and the reader that scores stories.</dd>
+    <div class="grp">New in Project 3</div>
+    <dt>Autoregressive (AR)</dt><dd>writing left to right, one token per model call.</dd>
+    <dt>Diffusion language model</dt><dd>a model that writes by filling blanks in parallel over a few steps.</dd>
+    <dt>Masked (absorbing) diffusion</dt><dd>the kind used here: the "noise" is replacing tokens with [MASK].</dd>
+    <dt>[MASK]</dt><dd>the blank token (number 8192).</dd>
+    <dt>Masking level t</dt><dd>the chance that each token is hidden in a training example (0.001 to 1).</dd>
+    <dt>Denoiser</dt><dd>the model that guesses the hidden tokens.</dd>
+    <dt>Causal / bidirectional attention</dt><dd>each position sees only its left side / sees the whole window.</dd>
+    <dt>NELBO, perplexity bound</dt><dd>a training quantity whose exponential is an upper limit on the true perplexity of a diffusion model.</dd>
+    <dt>Step (refinement step)</dt><dd>one round of guessing all blanks and filling some; one model call.</dd>
+    <dt>Schedule (linear, cosine, confidence)</dt><dd>how many blanks are filled at each step.</dd>
+    <dt>Reveal order (confidence, random)</dt><dd>which blanks are filled first.</dd>
+    <dt>Teacher perplexity</dt><dd>how surprising a generated story is to the AR teacher; lower means more fluent.</dd>
+    <dt>Repetition flag</dt><dd>marks a story that repeats the same phrases too often (Project 1's rule).</dd>
+    <dt>Local incoherence</dt><dd>a word that doesn't fit its neighbours: doubled words, stray punctuation, impossible slots.</dd>
+    <dt>Practice (dev) prompts</dt><dd>story beginnings from the validation set, used only to choose settings.</dd>
+    <dt>Key-value cache</dt><dd>a speed trick for AR models that reuses earlier work instead of recomputing it; not used here.</dd>
+    <dt>Ablation</dt><dd>an experiment that changes one setting to see how much it matters.</dd>
+    <dt>Blind labelling</dt><dd>judging outputs without knowing which model wrote them.</dd>
+  </dl></div>
+</section>
+
+<p style="margin-top:40px;color:var(--muted);font-size:13px">Full details: <code>INSTRUCTIONS.md</code> · Answer: <code>README.md</code> ·
+  All numbers: <code>results/</code> · Project 1 tutorial: <code>../project1/tutorial/project1.html</code> · Project 2 tutorial: <code>../project2/project2.html</code></p>
+
+</main>
+</div>
+
+<div id="tip" role="tooltip"></div>
+<script>
+(function () {
+  var $ = function (id) { return document.getElementById(id); };
+  var tip = $("tip");
+  function showTip(html, ev) {
+    tip.innerHTML = html; tip.style.opacity = 1;
+    var x = ev.clientX + 14, y = ev.clientY + 14, w = tip.offsetWidth, h = tip.offsetHeight;
+    if (x + w > innerWidth - 8) x = ev.clientX - w - 14;
+    if (y + h > innerHeight - 8) y = ev.clientY - h - 14;
+    tip.style.left = x + "px"; tip.style.top = y + "px";
+  }
+  function hideTip() { tip.style.opacity = 0; }
+  function css(v) { return getComputedStyle(document.documentElement).getPropertyValue(v).trim(); }
+  function esc(s) { return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;"); }
+  function buttons(id, items, cur, onPick) {
+    $(id).innerHTML = "";
+    items.forEach(function (it) {
+      var b = document.createElement("button"); b.type = "button"; b.className = "btn" + (cur === it.v ? " on" : "");
+      b.textContent = it.l; b.setAttribute("aria-pressed", String(cur === it.v));
+      b.onclick = function () { onPick(it.v); }; $(id).appendChild(b);
+    });
+  }
+  function bars(el, rows, max, fmt) {
+    el.innerHTML = rows.map(function (r) {
+      return '<div class="lab">' + r.lab + '</div><div class="track"><div class="fill" style="width:' +
+        (100 * r.v / max).toFixed(1) + '%;background:' + css(r.c) + '"></div></div><div class="val">' + fmt(r.v) + '</div>';
+    }).join("");
+  }
+
+  /* ---------- Idea 2: real trace (mdlm_base, cosine, random order, top-k 20, 8 steps, seed 3) ---------- */
+  var TRACE = [["Tom", " had", " a", " big", " red", " ball", ".", null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null], ["Tom", " had", " a", " big", " red", " ball", ".", null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, " He", null, null, null, null, null, null, null], ["Tom", " had", " a", " big", " red", " ball", ".", null, null, null, null, null, null, null, null, null, null, null, null, " He", null, null, ".", null, null, null, null, null, null, null, null, null, ",", null, null, null, null, null, null, " He", null, null, " the", null, null, null, null], ["Tom", " had", " a", " big", " red", " ball", ".", null, " is", " to", " a", null, null, null, " play", null, null, null, ".", " He", " is", null, ".", null, null, null, null, null, null, null, null, null, ",", null, null, null, null, null, null, " He", null, null, " the", null, null, null, null], ["Tom", " had", " a", " big", " red", " ball", ".", null, " is", " to", " a", null, null, null, " play", null, null, " yard", ".", " He", " is", null, ".", null, null, null, null, null, ".", null, null, " day", ",", null, null, null, null, null, null, " He", " jumps", null, " the", null, null, null, null], ["Tom", " had", " a", " big", " red", " ball", ".", null, " is", " to", " a", null, " ball", null, " play", null, " his", " yard", ".", " He", " is", null, ".", null, null, null, null, null, ".", null, "One", " day", ",", null, " sees", null, null, null, ".", " He", " jumps", null, " the", null, null, null, null], ["Tom", " had", " a", " big", " red", " ball", ".", null, " is", " to", " a", null, " ball", null, " play", null, " his", " yard", ".", " He", " is", null, ".", null, null, null, null, null, ".", null, "One", " day", ",", null, " sees", " a", null, " ball", ".", " He", " jumps", null, " the", null, null, null, " does"], ["Tom", " had", " a", " big", " red", " ball", ".", " It", " is", " to", " a", " big", " ball", " and", " play", " in", " his", " yard", ".", " He", " is", null, ".", null, null, " fun", " ball", " much", ".", null, "One", " day", ",", " Tom", " sees", " a", null, " ball", ".", " He", " jumps", null, " the", " leaves", null, null, " does"], ["Tom", " had", " a", " big", " red", " ball", ".", " It", " is", " to", " a", " big", " ball", " and", " play", " in", " his", " yard", ".", " He", " is", " happy", ".", " He", " has", " fun", " ball", " much", ".", " In", "One", " day", ",", " Tom", " sees", " a", " black", " ball", ".", " He", " jumps", " on", " the", " leaves", ".", " He", " does"]];
+  var PL = 7;
+  var FINAL = TRACE[TRACE.length - 1];
+  var NEW = FINAL.length - PL;
+  var w = { mode: "diff", step: 0, timer: null };
+  function wState(k) {
+    if (w.mode === "diff") return TRACE[k];
+    return FINAL.map(function (t, i) { return i < PL + k ? t : null; });
+  }
+  function drawWriter() {
+    buttons("wMode", [{ l: "Diffusion (8 calls)", v: "diff" }, { l: "Left to right (AR)", v: "ar" }], w.mode, function (v) {
+      w.mode = v; w.step = 0; stopPlay(); $("wStep").max = v === "diff" ? TRACE.length - 1 : NEW; drawWriter(); });
+    var k = w.step, cur = wState(k), prev = k > 0 ? wState(k - 1) : cur;
+    $("wStep").value = k; $("wStepV").textContent = k;
+    $("wTokens").innerHTML = cur.map(function (t, i) {
+      if (t === null) return '<span class="tok m">&nbsp;</span>';
+      var cls = i < PL ? "tok p" : (prev[i] === null && k > 0 ? "tok new" : "tok");
+      return '<span class="' + cls + '">' + esc(t.trim() || "·") + '</span>';
+    }).join("");
+    var left = cur.filter(function (t) { return t === null; }).length;
+    $("wFacts").innerHTML = "<span>Model calls: <b>" + k + "</b></span><span>Blanks left in view: <b>" + left + "</b></span>" +
+      (w.mode === "ar" ? "<span>An AR model needs one call per token: <b>~190 calls</b> for a whole story</span>"
+                       : "<span>The whole 256-token window is done after <b>8 calls</b></span>");
+  }
+  function stopPlay() { if (w.timer) { clearInterval(w.timer); w.timer = null; $("wPlay").textContent = "▶ Play"; } }
+  $("wStep").addEventListener("input", function () { stopPlay(); w.step = +this.value; drawWriter(); });
+  $("wPlay").addEventListener("click", function () {
+    if (w.timer) { stopPlay(); return; }
+    var max = +$("wStep").max; if (w.step >= max) w.step = 0;
+    $("wPlay").textContent = "❚❚ Pause";
+    w.timer = setInterval(function () { if (w.step >= max) { stopPlay(); return; } w.step++; drawWriter(); },
+      w.mode === "diff" ? 900 : 160);
+  });
+  drawWriter();
+
+  /* ---------- Idea 3: masking slider (sketch) ---------- */
+  var WORDS = ["<BOS>", "Lily", "went", "to", "the", "park", "with", "her", "mom", ".", "She", "saw", "a", "big", "red",
+               "ball", "under", "a", "tree", "and", "ran", "to", "get", "it", ".", "<EOS>"];
+  var seed = 7, rank = WORDS.map(function () { seed = (seed * 1103515245 + 12345) % 2147483648; return seed / 2147483648; });
+  function drawMask() {
+    var t = +$("mT").value / 100, n = 0;
+    $("mTV").textContent = Math.round(t * 100) + "%";
+    $("mTokens").innerHTML = WORDS.map(function (wd, i) {
+      if (i > 0 && rank[i] < t) { n++; return '<span class="tok m" title="hidden: ' + esc(wd) + '">[M]</span>'; }
+      return '<span class="tok' + (i === 0 ? " p" : "") + '">' + esc(wd) + '</span>';
+    }).join("");
+    $("mFacts").innerHTML = "<span>Hidden: <b>" + n + " of " + (WORDS.length - 1) + "</b></span><span>The model is graded only on these " + n + "</span><span>&lt;BOS&gt; is never hidden; &lt;EOS&gt; can be</span>";
+  }
+  $("mT").addEventListener("input", drawMask); drawMask();
+
+  /* ---------- Idea 4: attention grid ---------- */
+  var AW = ["The", "[M]", "found", "a", "dog", "."], aMode = "bi";
+  function drawAttn() {
+    buttons("aMode", [{ l: "Bidirectional (diffusion)", v: "bi" }, { l: "Causal (AR)", v: "causal" }], aMode, function (v) { aMode = v; drawAttn(); });
+    var h = '<div class="agrid" style="grid-template-columns:64px repeat(' + AW.length + ',minmax(0,46px))"><div></div>';
+    AW.forEach(function (x) { h += '<div class="ah">' + x + '</div>'; });
+    AW.forEach(function (r, i) {
+      h += '<div class="ah' + (i === 1 ? " hl" : "") + '" style="text-align:right">' + r + '</div>';
+      AW.forEach(function (c, j) {
+        var on = aMode === "bi" || j <= i;
+        h += '<div class="ac' + (on ? " on" : "") + (i === 1 && on ? " hl" : "") + '"></div>';
+      });
+    });
+    $("aGrid").innerHTML = h + "</div>";
+    $("aNote").innerHTML = aMode === "bi"
+      ? "The blank <b>[M]</b> can read “found a dog .” on its right, so it can guess “boy”, someone who finds things."
+      : "With a causal mask the blank <b>[M]</b> sees only “The”: almost no clue what goes there.";
+  }
+  drawAttn();
+
+  /* ---------- Idea 6: schedule (same formula as mdlm/generate.py) ---------- */
+  var sch = { s: "linear", S: 8 }, N0 = 249;
+  function remaining(s, i, S) { return s === "cosine" ? Math.cos(Math.PI / 2 * i / S) : 1 - i / S; }
+  function drawSched() {
+    buttons("sSched", [{ l: "Linear", v: "linear" }, { l: "Cosine", v: "cosine" }], sch.s, function (v) { sch.s = v; drawSched(); });
+    buttons("sSteps", [4, 8, 16, 32].map(function (S) { return { l: S + " steps", v: S }; }), sch.S, function (v) { sch.S = v; drawSched(); });
+    var left = N0, rows = [];
+    for (var i = 1; i <= sch.S; i++) {
+      var k = Math.max(left - Math.floor(N0 * remaining(sch.s, i, sch.S)), 1);
+      if (i === sch.S) k = left; k = Math.min(k, left); left -= k;
+      rows.push({ lab: "step " + (i < 10 && sch.S > 9 ? " " : "") + i, v: k, c: "--kd2" });
+    }
+    var max = Math.max.apply(null, rows.map(function (r) { return r.v; }));
+    bars($("sBars"), rows, max, function (v) { return v + " filled"; });
+    $("sBars").className = "bars";
+  }
+  drawSched();
+
+  /* ---------- Idea 9: speed vs quality (results/metrics) ---------- */
+  var SPEED = { 4: [0.121, 123.2], 8: [0.228, 45.5], 16: [0.432, 27.8], 32: [0.843, 22.5] }, qS = 32;
+  function drawSpeed() {
+    buttons("qSteps", [4, 8, 16, 32].map(function (S) { return { l: S + " steps", v: S }; }), qS, function (v) { qS = v; drawSpeed(); });
+    var d = SPEED[qS];
+    bars($("qTime"), [{ lab: "Diffusion 13.9M", v: d[0], c: "--kd2" }, { lab: "AR 5.3M", v: 0.850, c: "--scratch" },
+      { lab: "AR 13.9M", v: 1.557, c: "--teacher" }], 1.6, function (v) { return v.toFixed(2) + " s"; });
+    bars($("qPpl"), [{ lab: "Diffusion 13.9M", v: d[1], c: "--kd2" }, { lab: "AR 5.3M", v: 10.6, c: "--scratch" },
+      { lab: "AR 13.9M*", v: 3.7, c: "--teacher" }], 125, function (v) { return v.toFixed(1); });
+    $("qFacts").innerHTML = "<span>Speed-up vs AR 13.9M: <b>" + (1.557 / d[0]).toFixed(1) + "×</b></span><span>Story perplexity vs AR 5.3M: <b>" +
+      (d[1] / 10.6).toFixed(1) + "× worse</b></span>";
+  }
+  drawSpeed();
+
+  /* ---------- Phase 7: curves (results/metrics/<run>/log.csv) ---------- */
+  var CURVES = {
+    loss: { lab: "validation loss on blanks (nats)", lo: 2.9, hi: 5.8, ticks: [3, 3.5, 4, 4.5, 5, 5.5],
+      small: [[250,5.7027],[500,5.487],[750,5.3568],[1000,4.9514],[1250,4.4355],[1500,4.2163],[1750,4.0891],[2000,4.0039],[2250,3.9453],[2500,3.907],[2750,3.8834],[3000,3.8622]],
+      base: [[500,5.56],[1000,4.6028],[1500,3.9838],[2000,3.7683],[2500,3.6332],[3000,3.5273],[3500,3.448],[4000,3.3885],[4500,3.3275],[5000,3.2873],[5500,3.245],[6000,3.2061],[6500,3.1725],[7000,3.1473],[7500,3.1219],[8000,3.0987],[8500,3.0777],[9000,3.0679],[9500,3.057],[10000,3.0533]] },
+    acc: { lab: "blanks filled correctly (%)", lo: 5, hi: 45, ticks: [10, 20, 30, 40],
+      small: [[250,9.18],[500,9.75],[750,10.6],[1000,16.9],[1250,23.97],[1500,26.7],[1750,28.3],[2000,29.3],[2250,30.11],[2500,30.53],[2750,30.84],[3000,31.04]],
+      base: [[500,9.4],[1000,21.99],[1500,29.57],[2000,32.24],[2500,33.85],[3000,35.22],[3500,36.25],[4000,36.86],[4500,37.85],[5000,38.54],[5500,39.03],[6000,39.55],[6500,40.03],[7000,40.51],[7500,40.85],[8000,41.13],[8500,41.45],[9000,41.53],[9500,41.74],[10000,41.77]] }
+  }, cm = "loss";
+  function drawCurves() {
+    buttons("cMetric", [{ l: "Loss on blanks", v: "loss" }, { l: "Blanks right (%)", v: "acc" }], cm, function (v) { cm = v; drawCurves(); });
+    var C = CURVES[cm], W = 640, H = 330, m = { l: 46, r: 14, t: 12, b: 38 };
+    var x = function (s) { return m.l + s / 10000 * (W - m.l - m.r); };
+    var y = function (v) { return m.t + (C.hi - v) / (C.hi - C.lo) * (H - m.t - m.b); };
+    var o = "";
+    C.ticks.forEach(function (v) { o += '<line class="gridl" x1="' + m.l + '" x2="' + (W - m.r) + '" y1="' + y(v) + '" y2="' + y(v) + '"/><text x="' + (m.l - 6) + '" y="' + (y(v) + 4) + '" text-anchor="end">' + v + '</text>'; });
+    [0, 2000, 4000, 6000, 8000, 10000].forEach(function (s) { o += '<text x="' + x(s) + '" y="' + (H - m.b + 16) + '" text-anchor="middle">' + s + '</text>'; });
+    o += '<text x="' + ((W + m.l) / 2) + '" y="' + (H - 4) + '" text-anchor="middle">training step</text>';
+    o += '<text transform="translate(12,' + ((H - m.b + m.t) / 2) + ') rotate(-90)" text-anchor="middle">' + C.lab + '</text>';
+    [["small", "--diffs", "mdlm_small (5.3M)"], ["base", "--kd2", "mdlm_base (13.9M)"]].forEach(function (r) {
+      var c = css(r[1]), d = C[r[0]];
+      o += '<polyline fill="none" stroke="' + c + '" stroke-width="2.2" points="' + d.map(function (p) { return x(p[0]) + "," + y(p[1]); }).join(" ") + '"/>';
+      d.forEach(function (p) { o += '<circle cx="' + x(p[0]) + '" cy="' + y(p[1]) + '" r="4.5" fill="' + c + '" data-t="<b>' + r[2] + '</b><br>step ' + p[0] + ': ' + p[1] + (cm === "acc" ? "%" : "") + '"/>'; });
+    });
+    $("chart").innerHTML = o;
+    $("chart").querySelectorAll("circle").forEach(function (cn) {
+      cn.addEventListener("mousemove", function (e) { showTip(cn.getAttribute("data-t"), e); });
+      cn.addEventListener("mouseleave", hideTip);
+      cn.addEventListener("click", function (e) { showTip(cn.getAttribute("data-t"), e); });
+    });
+  }
+  drawCurves();
+
+  /* ---------- Phase 8 and 13: grouped bars ---------- */
+  function drawGrouped() {
+    var R = [["20% hidden", 51.5, 69.3], ["50% hidden", 40.4, 56.3], ["80% hidden", 24.0, 32.0], ["100% hidden", 9.1, 9.1]], rows = [];
+    R.forEach(function (r) { rows.push({ lab: r[0] + "  small", v: r[1], c: "--diffs" }); rows.push({ lab: r[0] + "  base ", v: r[2], c: "--kd2" }); });
+    bars($("reconBars"), rows, 100, function (v) { return v.toFixed(1) + "%"; });
+    var E = [["local incoherence", 97, 7], ["grammar", 100, 27], ["character mix-up", 92, 62], ["contradiction", 100, 98],
+             ["repetition", 3, 7], ["unfinished", 42, 35]], er = [];
+    E.forEach(function (r) { er.push({ lab: r[0] + "  diffusion", v: r[1], c: "--kd2" }); er.push({ lab: r[0] + "  AR       ", v: r[2], c: "--teacher" }); });
+    bars($("errBars"), er, 100, function (v) { return v + "%"; });
+  }
+  drawGrouped();
+
+  window.__redraw = function () { drawCurves(); drawGrouped(); drawSpeed(); drawSched(); };
+})();
+</script>
+<script>
+(function () {
+  var root = document.documentElement;
+  try { var t = localStorage.getItem("p3-theme"); if (t) root.setAttribute("data-theme", t); } catch (e) {}
+  if (window.__redraw) window.__redraw();
+  document.getElementById("themeBtn").addEventListener("click", function () {
+    var cur = root.getAttribute("data-theme") || (window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light");
+    var next = cur === "dark" ? "light" : "dark";
+    root.setAttribute("data-theme", next);
+    try { localStorage.setItem("p3-theme", next); } catch (e) {}
+    if (window.__redraw) window.__redraw();
+  });
+  if (window.matchMedia) window.matchMedia("(prefers-color-scheme: dark)").addEventListener("change", function () { if (window.__redraw) window.__redraw(); });
+  var links = Array.prototype.slice.call(document.querySelectorAll("#toc a"));
+  var targets = links.map(function (a) { return document.querySelector(a.getAttribute("href")); });
+  if ("IntersectionObserver" in window) {
+    var obs = new IntersectionObserver(function (entries) {
+      entries.forEach(function (en) {
+        if (en.isIntersecting) {
+          var i = targets.indexOf(en.target);
+          links.forEach(function (l) { l.classList.remove("active"); });
+          if (i >= 0) links[i].classList.add("active");
+        }
+      });
+    }, { rootMargin: "-20% 0px -70% 0px" });
+    targets.forEach(function (t) { if (t) obs.observe(t); });
+  }
+})();
+</script>
+</body>
+</html>

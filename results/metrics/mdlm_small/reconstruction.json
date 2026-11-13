@@ -1,0 +1,95 @@
+{
+ "rates": {
+  "0.2": {
+   "masked_tokens": 51000,
+   "ce": 2.4572577454810047,
+   "accuracy": 0.5146078431372549
+  },
+  "0.5": {
+   "masked_tokens": 128000,
+   "ce": 3.1413526763916018,
+   "accuracy": 0.404390625
+  },
+  "0.8": {
+   "masked_tokens": 204000,
+   "ce": 4.301039139093137,
+   "accuracy": 0.24037254901960783
+  },
+  "1.0": {
+   "masked_tokens": 255000,
+   "ce": 5.811896047794118,
+   "accuracy": 0.09075686274509803
+  }
+ },
+ "examples": {
+  "0.2": [
+   {
+    "masked": "<BOS>Once upon a time, there was a little girl named Lucy. She had a pet cat named Tom. ___ loved to play ___ in the big ___ park near ___ house ___ One sunny day, they went to the park to play. While playing, Tom saw a big sour lemon on the ___. He wanted to play with it ___ but when he touched it, it started to roll away.",
+    "reconstructed": "Once upon a time, there was a little girl named Lucy. She had a pet cat named Tom. She loved to play outside in the big big park near her house. One sunny day, they went to the park to play. While playing, Tom saw a big sour lemon on the ground. He wanted to play with it, but when he touched it, it started to roll away.",
+    "original": "Once upon a time, there was a little girl named Lucy. She had a pet cat named Tom. They loved to play together in the big green park near their house. One sunny day, they went to the park to play. While playing, Tom saw a big sour lemon on the ground. He wanted to play with it, but when he touched it, it started to roll away."
+   },
+   {
+    "masked": "<BOS> ___ ___ a time, ___ was a little girl named ___ ___ She was very ___ of the dark ___ had ___ nightmare every night. ___ ___ ___ ___ told her mom ___ her nightmare. \" ___ ___ a bad dream last ___ ___ Mommy,\" ___ ___ ___ ___What did you dream about, sweetie?\" asked her mom. ___I ___ that a ___ monster came out of my closet ___ scared",
+    "reconstructed": "Once upon a time, there was a little girl named Lily. She was very proud of the dark and had a nightmare every night. One day's mom told her mom told her nightmare. \"It's a bad dream last., Mommy,\" she said. \"What did you dream about, sweetie?\" asked her mom. \"I'm that a big monster came out of my closet is scared",
+    "original": "Once upon a time, there was a little girl named Lily. She was very scared of the dark and had a nightmare every night. One day, she told her mom about her nightmare. \"I had a bad dream last night, Mommy,\" said Lily. \"What did you dream about, sweetie?\" asked her mom. \"I dreamt that a big monster came out of my closet and scared"
+   },
+   {
+    "masked": "<BOS>Once upon a time, there ___ a clumsy monkey ___ Max. Max loved to play games with ___ friends in the jungle. ___ day ___ they decided to play a game ___ tag. Max was ___ excited to play ___ ___ forgot ___ watch where ___ ___ going and ___ over a ___. ___'s ___ laughed and teased him, ___ Max didn't mind. He got ___ and ___ playing ___",
+    "reconstructed": "Once upon a time, there was a clumsy monkey named Max. Max loved to play games with his friends in the jungle. One day, they decided to play a game playing tag. Max was very excited to play. He forgot to watch where he was going and ran over a game. Max's friends laughed and teased him, but Max didn't mind. He got sad and started playing.",
+    "original": "Once upon a time, there was a clumsy monkey named Max. Max loved to play games with his friends in the jungle. One day, they decided to play a game of tag. Max was so excited to play that he forgot to watch where he was going and tripped over a rock. Max's friends laughed and teased him, but Max didn't mind. He got up and kept playing."
+   }
+  ],
+  "0.5": [
+   {
+    "masked": "<BOS> ___ ___ ___ time ___ there was ___ little ___ named ___ ___ ___ had ___ ___ cat named Tom ___ They loved to play together in the big green ___ near ___ ___. One sunny day ___ ___ went to the ___ to ___ ___ ___ ___ ___ Tom saw a big ___ ___ ___ the ground ___ ___ wanted ___ play with it ___ ___ ___ ___ ___ it ___ it ___ ___ ___ ___ ___",
+    "reconstructed": "Once upon a time, there was a little girl named Tom. She had a big cat named Tom. They loved to play together in the big green tree near the park. One sunny day, Tom went to the park to the.. park. Tom saw a big tree on on the ground. She wanted to play with it. She. She but it and it was....",
+    "original": "Once upon a time, there was a little girl named Lucy. She had a pet cat named Tom. They loved to play together in the big green park near their house. One sunny day, they went to the park to play. While playing, Tom saw a big sour lemon on the ground. He wanted to play with it, but when he touched it, it started to roll away."
+   },
+   {
+    "masked": "<BOS> ___ ___ ___ ___ ___ there was ___ ___ girl ___ ___. ___ was very scared ___ the ___ and ___ ___ nightmare ___ ___. ___ day ___ ___ told her mom about ___ ___. ___I had a ___ ___ ___ ___ ___ Mommy ___ said Lily ___ \"What did you dream ___, sweetie ___ asked ___ ___. ___ ___ dreamt ___ a ___ ___ ___ ___ of ___ ___ and scared",
+    "reconstructed": "Once upon a time, there was a little girl named Lily. She was very scared in the room and she her nightmare and day. One day, mommy told her mom about her mom. \"I had a big,, Lily?\" Mommy,\" said Lily. \"What did you dream,, sweetie,\" asked her mommy. \"I dreamt for a big. a out of the, and scared",
+    "original": "Once upon a time, there was a little girl named Lily. She was very scared of the dark and had a nightmare every night. One day, she told her mom about her nightmare. \"I had a bad dream last night, Mommy,\" said Lily. \"What did you dream about, sweetie?\" asked her mom. \"I dreamt that a big monster came out of my closet and scared"
+   },
+   {
+    "masked": "<BOS>Once ___ a ___ ___ there ___ ___ clumsy monkey ___ Max. ___ ___ to ___ games ___ ___ friends in ___ jungle ___ One ___ ___ they decided to play a game of ___ ___ ___ was ___ excited to ___ that ___ forgot to ___ ___ he ___ going and tripped over a ___. Max ___ ___ ___ ___ teased him, ___ ___ ___'t mind. ___ got up ___ ___ playing.",
+    "reconstructed": "Once upon a time, there was a clumsy monkey named Max. Max loved to play games with his friends in the jungle. One day, they decided to play a game of friends. Max was very excited to see that he forgot to play but he was going and tripped over a dog. Max was to and and teased him, but he didn't mind. Max got up and and playing.",
+    "original": "Once upon a time, there was a clumsy monkey named Max. Max loved to play games with his friends in the jungle. One day, they decided to play a game of tag. Max was so excited to play that he forgot to watch where he was going and tripped over a rock. Max's friends laughed and teased him, but Max didn't mind. He got up and kept playing."
+   }
+  ],
+  "0.8": [
+   {
+    "masked": "<BOS> ___ ___ ___ time ___ ___ ___ ___ little ___ named ___ ___ ___ ___ ___ ___ ___ named ___ ___ They loved ___ ___ ___ ___ ___ ___ ___ ___ ___ ___ ___ ___ ___ ___ ___ ___ ___ went ___ ___ ___ ___ ___ ___ ___ ___ ___ ___ saw ___ ___ ___ ___ ___ ___ ___ ___ ___ ___ ___ play ___ ___ ___ but ___ ___ touched ___, it started ___ ___ ___ ___",
+    "reconstructed": "Once upon a time, there was a little girl named Tim. She was a little dog named Tom. They loved to play and day day day,,..... day day, Tim went to the park park park the.., Tim saw a big...... wanted wanted to play with it, but the he touched it, it started to catch..",
+    "original": "Once upon a time, there was a little girl named Lucy. She had a pet cat named Tom. They loved to play together in the big green park near their house. One sunny day, they went to the park to play. While playing, Tom saw a big sour lemon on the ground. He wanted to play with it, but when he touched it, it started to roll away."
+   },
+   {
+    "masked": "<BOS> ___ ___ ___ ___ ___ ___ ___ ___ ___ ___ named ___ ___ ___ was ___ ___ ___ the ___ ___ had ___ ___ ___ ___. ___ ___ ___ ___ ___ ___ ___ ___ ___ ___. ___ ___ ___ a bad ___ last night ___ ___,\" ___ Lily ___ ___ ___ did ___ ___ about, sweetie ___ ___ her ___ ___ ___ ___ ___ ___ ___ big ___ ___ ___ ___ ___ closet and ___",
+    "reconstructed": "Once upon a time, there was a little girl named Lily. She was very and in the park and had a big her toys. One day, a to to a a the room. Lily day saw a bad of last night, Lily,\" said Lily said. Lily did not know about, sweetie. asked her mom.... saw a big,. Lily on the closet and help",
+    "original": "Once upon a time, there was a little girl named Lily. She was very scared of the dark and had a nightmare every night. One day, she told her mom about her nightmare. \"I had a bad dream last night, Mommy,\" said Lily. \"What did you dream about, sweetie?\" asked her mom. \"I dreamt that a big monster came out of my closet and scared"
+   },
+   {
+    "masked": "<BOS> ___ ___ ___ ___ ___ ___ ___ ___ ___ ___ ___ ___. ___ ___ ___ play ___ with ___ ___ ___ ___ ___ ___ ___ ___ ___ ___ ___ ___ ___ ___ game ___ ___. ___ ___ ___ ___ ___ ___ ___ ___ ___ to watch ___ he ___ ___ ___ ___ ___ a ___ ___ ___ ___ ___ ___ ___ ___ ___ ___ ___ ___ ___ ___ ___ ___ ___ ___ up ___ kept ___ ___",
+    "reconstructed": "Once upon a time, there was a little boy named Lily. Max loved to play outside with his friends... day day,,,, to a a game to friends. One day, to to,, Max wanted to watch, he was to. he saw a big,.............. to it up and kept playing.",
+    "original": "Once upon a time, there was a clumsy monkey named Max. Max loved to play games with his friends in the jungle. One day, they decided to play a game of tag. Max was so excited to play that he forgot to watch where he was going and tripped over a rock. Max's friends laughed and teased him, but Max didn't mind. He got up and kept playing."
+   }
+  ],
+  "1.0": [
+   {
+    "masked": "<BOS> ___ ___ ___ ___ ___ ___ ___ ___ ___ ___ ___ ___ ___ ___ ___ ___ ___ ___ ___ ___ ___ ___ ___ ___ ___ ___ ___ ___ ___ ___ ___ ___ ___ ___ ___ ___ ___ ___ ___ ___ ___ ___ ___ ___ ___ ___ ___ ___ ___ ___ ___ ___ ___ ___ ___ ___ ___ ___ ___ ___ ___ ___ ___ ___ ___ ___ ___ ___ ___ ___ ___ ___ ___ ___ ___ ___ ___ ___ ___",
+    "reconstructed": "Once upon a time, there was a little girl named Lily.. loved to to..............................................................",
+    "original": "Once upon a time, there was a little girl named Lucy. She had a pet cat named Tom. They loved to play together in the big green park near their house. One sunny day, they went to the park to play. While playing, Tom saw a big sour lemon on the ground. He wanted to play with it, but when he touched it, it started to roll away."
+   },
+   {
+    "masked": "<BOS> ___ ___ ___ ___ ___ ___ ___ ___ ___ ___ ___ ___ ___ ___ ___ ___ ___ ___ ___ ___ ___ ___ ___ ___ ___ ___ ___ ___ ___ ___ ___ ___ ___ ___ ___ ___ ___ ___ ___ ___ ___ ___ ___ ___ ___ ___ ___ ___ ___ ___ ___ ___ ___ ___ ___ ___ ___ ___ ___ ___ ___ ___ ___ ___ ___ ___ ___ ___ ___ ___ ___ ___ ___ ___ ___ ___ ___ ___ ___",
+    "reconstructed": "Once upon a time, there was a little girl named Lily.. loved to to..............................................................",
+    "original": "Once upon a time, there was a little girl named Lily. She was very scared of the dark and had a nightmare every night. One day, she told her mom about her nightmare. \"I had a bad dream last night, Mommy,\" said Lily. \"What did you dream about, sweetie?\" asked her mom. \"I dreamt that a big monster came out of my closet and scared"
+   },
+   {
+    "masked": "<BOS> ___ ___ ___ ___ ___ ___ ___ ___ ___ ___ ___ ___ ___ ___ ___ ___ ___ ___ ___ ___ ___ ___ ___ ___ ___ ___ ___ ___ ___ ___ ___ ___ ___ ___ ___ ___ ___ ___ ___ ___ ___ ___ ___ ___ ___ ___ ___ ___ ___ ___ ___ ___ ___ ___ ___ ___ ___ ___ ___ ___ ___ ___ ___ ___ ___ ___ ___ ___ ___ ___ ___ ___ ___ ___ ___ ___ ___ ___ ___",
+    "reconstructed": "Once upon a time, there was a little girl named Lily.. loved to to..............................................................",
+    "original": "Once upon a time, there was a clumsy monkey named Max. Max loved to play games with his friends in the jungle. One day, they decided to play a game of tag. Max was so excited to play that he forgot to watch where he was going and tripped over a rock. Max's friends laughed and teased him, but Max didn't mind. He got up and kept playing."
+   }
+  ]
+ },
+ "n_windows": 1000
+}

@@ -1,0 +1,12 @@
+{
+  "run": "mdlm_base",
+  "steps": 10000,
+  "tokens": 163840000,
+  "best_val_loss": 3.05333300313903,
+  "wall_clock_s": 34353.0,
+  "peak_mem_mb": 2185.1,
+  "params": {
+    "total": 13891968,
+    "non_embedding": 10647552
+  }
+}

@@ -1,0 +1,13 @@
+# Same versions as Project 1 (project1/requirements.lock.txt), so the tokenizer, data and numbers stay identical.
+# Install PyTorch first (CPU build):
+#   pip install torch==2.14.1 --index-url https://download.pytorch.org/whl/cpu
+# then:  pip install -r requirements.txt
+# Not needed here: datasets / pyarrow (Project 1 used them to download and clean TinyStories;
+# Project 2 reads the already tokenized files in ../project1/data/full).
+tokenizers==0.23.3
+numpy==2.5.4
+matplotlib==3.11.2
+PyYAML==6.0.3
+psutil==7.2.2
+tqdm==4.70.1
+pytest==9.1.1

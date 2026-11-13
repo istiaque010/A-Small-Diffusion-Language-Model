@@ -1,0 +1,482 @@
+{
+"0": [
+"diffusion",
+29
+],
+"1": [
+"diffusion",
+23
+],
+"2": [
+"diffusion",
+2
+],
+"3": [
+"ar_teacher",
+43
+],
+"4": [
+"ar_teacher",
+34
+],
+"5": [
+"ar_teacher",
+26
+],
+"6": [
+"ar_teacher",
+25
+],
+"7": [
+"diffusion",
+19
+],
+"8": [
+"ar_teacher",
+35
+],
+"9": [
+"ar_teacher",
+44
+],
+"10": [
+"diffusion",
+4
+],
+"11": [
+"ar_teacher",
+20
+],
+"12": [
+"ar_teacher",
+53
+],
+"13": [
+"diffusion",
+34
+],
+"14": [
+"ar_teacher",
+9
+],
+"15": [
+"diffusion",
+24
+],
+"16": [
+"diffusion",
+49
+],
+"17": [
+"ar_teacher",
+30
+],
+"18": [
+"diffusion",
+52
+],
+"19": [
+"ar_teacher",
+57
+],
+"20": [
+"diffusion",
+17
+],
+"21": [
+"diffusion",
+42
+],
+"22": [
+"diffusion",
+21
+],
+"23": [
+"ar_teacher",
+23
+],
+"24": [
+"diffusion",
+22
+],
+"25": [
+"diffusion",
+20
+],
+"26": [
+"ar_teacher",
+46
+],
+"27": [
+"ar_teacher",
+45
+],
+"28": [
+"ar_teacher",
+37
+],
+"29": [
+"ar_teacher",
+52
+],
+"30": [
+"ar_teacher",
+59
+],
+"31": [
+"ar_teacher",
+17
+],
+"32": [
+"ar_teacher",
+51
+],
+"33": [
+"ar_teacher",
+3
+],
+"34": [
+"diffusion",
+6
+],
+"35": [
+"diffusion",
+41
+],
+"36": [
+"ar_teacher",
+7
+],
+"37": [
+"diffusion",
+8
+],
+"38": [
+"ar_teacher",
+32
+],
+"39": [
+"ar_teacher",
+21
+],
+"40": [
+"ar_teacher",
+28
+],
+"41": [
+"ar_teacher",
+6
+],
+"42": [
+"ar_teacher",
+48
+],
+"43": [
+"ar_teacher",
+47
+],
+"44": [
+"ar_teacher",
+14
+],
+"45": [
+"ar_teacher",
+24
+],
+"46": [
+"diffusion",
+16
+],
+"47": [
+"diffusion",
+33
+],
+"48": [
+"ar_teacher",
+1
+],
+"49": [
+"ar_teacher",
+0
+],
+"50": [
+"diffusion",
+38
+],
+"51": [
+"ar_teacher",
+54
+],
+"52": [
+"diffusion",
+51
+],
+"53": [
+"ar_teacher",
+55
+],
+"54": [
+"diffusion",
+27
+],
+"55": [
+"diffusion",
+7
+],
+"56": [
+"diffusion",
+55
+],
+"57": [
+"diffusion",
+31
+],
+"58": [
+"diffusion",
+35
+],
+"59": [
+"ar_teacher",
+12
+],
+"60": [
+"ar_teacher",
+29
+],
+"61": [
+"diffusion",
+25
+],
+"62": [
+"diffusion",
+5
+],
+"63": [
+"diffusion",
+54
+],
+"64": [
+"diffusion",
+59
+],
+"65": [
+"diffusion",
+46
+],
+"66": [
+"diffusion",
+47
+],
+"67": [
+"diffusion",
+3
+],
+"68": [
+"diffusion",
+39
+],
+"69": [
+"diffusion",
+18
+],
+"70": [
+"diffusion",
+58
+],
+"71": [
+"ar_teacher",
+31
+],
+"72": [
+"diffusion",
+37
+],
+"73": [
+"ar_teacher",
+8
+],
+"74": [
+"ar_teacher",
+49
+],
+"75": [
+"diffusion",
+11
+],
+"76": [
+"diffusion",
+43
+],
+"77": [
+"diffusion",
+9
+],
+"78": [
+"ar_teacher",
+56
+],
+"79": [
+"diffusion",
+48
+],
+"80": [
+"diffusion",
+45
+],
+"81": [
+"diffusion",
+44
+],
+"82": [
+"diffusion",
+32
+],
+"83": [
+"diffusion",
+50
+],
+"84": [
+"diffusion",
+26
+],
+"85": [
+"ar_teacher",
+58
+],
+"86": [
+"ar_teacher",
+41
+],
+"87": [
+"ar_teacher",
+27
+],
+"88": [
+"diffusion",
+1
+],
+"89": [
+"diffusion",
+57
+],
+"90": [
+"diffusion",
+12
+],
+"91": [
+"diffusion",
+36
+],
+"92": [
+"diffusion",
+14
+],
+"93": [
+"diffusion",
+10
+],
+"94": [
+"ar_teacher",
+18
+],
+"95": [
+"diffusion",
+0
+],
+"96": [
+"diffusion",
+30
+],
+"97": [
+"diffusion",
+56
+],
+"98": [
+"ar_teacher",
+15
+],
+"99": [
+"ar_teacher",
+42
+],
+"100": [
+"ar_teacher",
+36
+],
+"101": [
+"ar_teacher",
+2
+],
+"102": [
+"ar_teacher",
+38
+],
+"103": [
+"ar_teacher",
+39
+],
+"104": [
+"ar_teacher",
+33
+],
+"105": [
+"ar_teacher",
+10
+],
+"106": [
+"ar_teacher",
+13
+],
+"107": [
+"ar_teacher",
+40
+],
+"108": [
+"diffusion",
+53
+],
+"109": [
+"ar_teacher",
+11
+],
+"110": [
+"ar_teacher",
+19
+],
+"111": [
+"ar_teacher",
+16
+],
+"112": [
+"diffusion",
+28
+],
+"113": [
+"diffusion",
+13
+],
+"114": [
+"ar_teacher",
+50
+],
+"115": [
+"ar_teacher",
+22
+],
+"116": [
+"ar_teacher",
+5
+],
+"117": [
+"ar_teacher",
+4
+],
+"118": [
+"diffusion",
+40
+],
+"119": [
+"diffusion",
+15
+]
+}

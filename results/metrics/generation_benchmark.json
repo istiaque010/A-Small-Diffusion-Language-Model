@@ -1,0 +1,74 @@
+[
+ {
+  "model": "mdlm_small",
+  "params": 5322496,
+  "ram_added_by_model_mb": 58.40234375,
+  "S=4": {
+   "latency_s": 0.09584117999766022,
+   "window_tokens_per_s": 2618.9160025588967
+  },
+  "S=8": {
+   "latency_s": 0.19051267998293042,
+   "window_tokens_per_s": 1317.4976071014755
+  },
+  "S=16": {
+   "latency_s": 0.36425228000152854,
+   "window_tokens_per_s": 689.0828521346433
+  },
+  "S=32": {
+   "latency_s": 0.7228256199974566,
+   "window_tokens_per_s": 347.2483446296261
+  },
+  "peak_ram_mb": 333.77734375,
+  "other_cpu_max_pct": 8.854166666666664,
+  "reliable": true
+ },
+ {
+  "model": "mdlm_base",
+  "params": 13891968,
+  "ram_added_by_model_mb": 127.3515625,
+  "S=4": {
+   "latency_s": 0.1211479399818927,
+   "window_tokens_per_s": 2071.8470329542174
+  },
+  "S=8": {
+   "latency_s": 0.22809697999618947,
+   "window_tokens_per_s": 1100.4091330108497
+  },
+  "S=16": {
+   "latency_s": 0.43229430001229047,
+   "window_tokens_per_s": 580.6229691042975
+  },
+  "S=32": {
+   "latency_s": 0.8431620199931785,
+   "window_tokens_per_s": 297.6889305355935
+  },
+  "peak_ram_mb": 399.09375,
+  "other_cpu_max_pct": 5.991666666666667,
+  "reliable": true
+ },
+ {
+  "model": "ar_small",
+  "params": 5322240,
+  "ram_added_by_model_mb": 99.859375,
+  "full window": {
+   "latency_s": 0.8496784599963576,
+   "window_tokens_per_s": 295.4058644738105
+  },
+  "peak_ram_mb": 306.78125,
+  "other_cpu_max_pct": 6.950000000000003,
+  "reliable": true
+ },
+ {
+  "model": "ar_teacher",
+  "params": 13891584,
+  "ram_added_by_model_mb": 131.625,
+  "full window": {
+   "latency_s": 1.5567349399905652,
+   "window_tokens_per_s": 161.23489847380262
+  },
+  "peak_ram_mb": 343.30078125,
+  "other_cpu_max_pct": 3.766666666666673,
+  "reliable": true
+ }
+]

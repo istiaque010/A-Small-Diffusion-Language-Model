@@ -1,0 +1,19 @@
+# 20-second check that the whole training loop works (loss must go down).
+run_name: smoke
+seed: 1337
+model: {n_layer: 2, n_head: 4, n_embd: 128, block_size: 256, dropout: 0.1, bias: true, time_cond: false}
+train:
+  batch_size: 8
+  grad_accum_steps: 1
+  max_steps: 60
+  lr: 1.0e-3
+  min_lr: 1.0e-4
+  warmup_steps: 10
+  weight_decay: 0.1
+  betas: [0.9, 0.95]
+  grad_clip: 1.0
+  eval_interval: 30
+  eval_windows: 64
+  log_interval: 10
+  ckpt_interval: 1000000
+  mask_schedule: linear

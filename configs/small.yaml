@@ -1,0 +1,20 @@
+# Small diffusion LM: same shape and token budget as Project 2's "student from scratch" (4 layers, width 256,
+# 3,000 steps x 64 x 256 tokens = 49M tokens), so it can be compared with an autoregressive model of equal size.
+run_name: mdlm_small
+seed: 1337
+model: {n_layer: 4, n_head: 4, n_embd: 256, block_size: 256, dropout: 0.1, bias: true, time_cond: false}
+train:
+  batch_size: 8
+  grad_accum_steps: 8        # 64 windows x 256 tokens = 16,384 tokens per step
+  max_steps: 3000
+  lr: 6.0e-4
+  min_lr: 6.0e-5
+  warmup_steps: 150
+  weight_decay: 0.1
+  betas: [0.9, 0.95]
+  grad_clip: 1.0
+  eval_interval: 250
+  eval_windows: 800
+  log_interval: 25
+  ckpt_interval: 1000
+  mask_schedule: linear

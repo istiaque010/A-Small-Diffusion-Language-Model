@@ -1,0 +1,12 @@
+{
+  "run": "smoke",
+  "steps": 60,
+  "tokens": 122880,
+  "best_val_loss": 6.007053938997006,
+  "wall_clock_s": 4.8,
+  "peak_mem_mb": 1362.9,
+  "params": {
+    "total": 1478272,
+    "non_embedding": 396800
+  }
+}
