@@ -1,0 +1,2 @@
+# Tutorial pages are documentation: keep them out of the GitHub language statistics
+*.html linguist-documentation
